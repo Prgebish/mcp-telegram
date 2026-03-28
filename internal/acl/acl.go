@@ -48,10 +48,14 @@ func NewChecker(cfg config.ACLConfig) (*Checker, error) {
 	return &Checker{rules: rules}, nil
 }
 
+// Allowed checks if peer has the given permission.
+// Permissions are merged across all matching rules — if any matching rule
+// grants the permission, it is allowed. This avoids shadowing when the same
+// peer is referenced by multiple matchers (@username, +phone, user:ID).
 func (c *Checker) Allowed(peer PeerIdentity, perm config.Permission) bool {
 	for _, rule := range c.rules {
-		if rule.matcher(peer) {
-			return rule.perms[perm]
+		if rule.matcher(peer) && rule.perms[perm] {
+			return true
 		}
 	}
 	return false
@@ -66,6 +70,17 @@ func (c *Checker) MatchesAny(peer PeerIdentity) bool {
 	return false
 }
 
+// normalizePhone strips everything except + and digits.
+func normalizePhone(phone string) string {
+	var b strings.Builder
+	for _, r := range phone {
+		if r == '+' || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
 func compileMatcher(match string) (func(PeerIdentity) bool, error) {
 	switch {
 	case strings.HasPrefix(match, "@"):
@@ -75,9 +90,9 @@ func compileMatcher(match string) (func(PeerIdentity) bool, error) {
 		}, nil
 
 	case strings.HasPrefix(match, "+"):
-		phone := match
+		normalized := normalizePhone(match)
 		return func(p PeerIdentity) bool {
-			return p.Phone == phone
+			return normalizePhone(p.Phone) == normalized
 		}, nil
 
 	case strings.HasPrefix(match, "user:"):

@@ -45,7 +45,7 @@ func main() {
 
 	limiter := ratelimit.New(cfg.Limits.Rate)
 
-	client := tgclient.New(cfg.Telegram)
+	client := tgclient.New(cfg.Telegram, limiter)
 	logger.Info("connecting to Telegram...")
 	if err := client.Start(ctx); err != nil {
 		logger.Error("failed to start Telegram client", "error", err)
@@ -60,10 +60,9 @@ func main() {
 	}, nil)
 
 	deps := &tools.Deps{
-		Client:  client,
-		ACL:     checker,
-		Limiter: limiter,
-		Limits:  cfg.Limits,
+		Client: client,
+		ACL:    checker,
+		Limits: cfg.Limits,
 	}
 	tools.Register(server, deps)
 

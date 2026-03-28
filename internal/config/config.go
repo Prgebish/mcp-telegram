@@ -80,6 +80,8 @@ func applyDefaults(cfg *Config) {
 	if cfg.Telegram.SessionPath == "" {
 		home, _ := os.UserHomeDir()
 		cfg.Telegram.SessionPath = home + "/.config/mcp-telegram/session.json"
+	} else {
+		cfg.Telegram.SessionPath = expandTilde(cfg.Telegram.SessionPath)
 	}
 	if cfg.Limits.MaxMessagesPerRequest == 0 {
 		cfg.Limits.MaxMessagesPerRequest = 50
@@ -153,6 +155,17 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("limits.rate.burst must be positive")
 	}
 	return nil
+}
+
+func expandTilde(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return path
+		}
+		return home + path[1:]
+	}
+	return path
 }
 
 func isValidMatch(m string) bool {

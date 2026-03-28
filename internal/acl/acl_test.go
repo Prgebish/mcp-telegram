@@ -115,6 +115,77 @@ func TestChecker_MatchesAny(t *testing.T) {
 	}
 }
 
+func TestChecker_PermissionMerging(t *testing.T) {
+	// Same peer referenced by @username and user:ID — permissions should merge
+	checker := mustNewChecker(t, []config.ChatRule{
+		{Match: "@alice", Permissions: []config.Permission{config.PermRead}},
+		{Match: "user:100", Permissions: []config.Permission{config.PermDraft}},
+	})
+
+	peer := PeerIdentity{Kind: KindUser, ID: 100, Username: "alice"}
+
+	if !checker.Allowed(peer, config.PermRead) {
+		t.Error("should have read from @alice rule")
+	}
+	if !checker.Allowed(peer, config.PermDraft) {
+		t.Error("should have draft from user:100 rule (permissions must merge, not shadow)")
+	}
+	if checker.Allowed(peer, config.PermMarkRead) {
+		t.Error("should not have mark_read (not granted by either rule)")
+	}
+}
+
+func TestChecker_PhoneAndUsernameForSamePeer(t *testing.T) {
+	checker := mustNewChecker(t, []config.ChatRule{
+		{Match: "+79001234567", Permissions: []config.Permission{config.PermRead}},
+		{Match: "@alice", Permissions: []config.Permission{config.PermDraft}},
+	})
+
+	// Peer with both phone and username — should match both rules
+	peer := PeerIdentity{Kind: KindUser, ID: 1, Username: "alice", Phone: "+79001234567"}
+	if !checker.Allowed(peer, config.PermRead) {
+		t.Error("should have read from phone rule")
+	}
+	if !checker.Allowed(peer, config.PermDraft) {
+		t.Error("should have draft from username rule")
+	}
+}
+
+func TestChecker_PhoneNormalization(t *testing.T) {
+	checker := mustNewChecker(t, []config.ChatRule{
+		{Match: "+1 (311) 555-6162", Permissions: []config.Permission{config.PermRead}},
+	})
+
+	// Phone from Telegram Raw() is typically digits only with +
+	peer := PeerIdentity{Kind: KindUser, ID: 1, Phone: "+13115556162"}
+	if !checker.Allowed(peer, config.PermRead) {
+		t.Error("phone matching should normalize: +1 (311) 555-6162 == +13115556162")
+	}
+
+	// Reverse: config has clean phone, identity has formatted
+	checker2 := mustNewChecker(t, []config.ChatRule{
+		{Match: "+13115556162", Permissions: []config.Permission{config.PermRead}},
+	})
+	peer2 := PeerIdentity{Kind: KindUser, ID: 1, Phone: "+1 311 555-6162"}
+	if !checker2.Allowed(peer2, config.PermRead) {
+		t.Error("phone matching should normalize in both directions")
+	}
+}
+
+func TestChecker_PhoneMatchInDialogs(t *testing.T) {
+	// Peer added by phone should be found in dialogs even when identity
+	// comes from PeerToIdentity (which fills Phone from Raw())
+	checker := mustNewChecker(t, []config.ChatRule{
+		{Match: "+79001234567", Permissions: []config.Permission{config.PermRead}},
+	})
+
+	// Simulate a peer identity as it would come from PeerToIdentity
+	peer := PeerIdentity{Kind: KindUser, ID: 42, Phone: "+79001234567"}
+	if !checker.MatchesAny(peer) {
+		t.Error("peer with matching phone should appear in dialogs")
+	}
+}
+
 func TestNewChecker_InvalidMatch(t *testing.T) {
 	_, err := NewChecker(config.ACLConfig{
 		Chats: []config.ChatRule{

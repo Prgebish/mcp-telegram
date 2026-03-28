@@ -28,10 +28,6 @@ func registerHistory(server *mcp.Server, deps *Deps) {
 			DestructiveHint: ptrBool(false),
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input historyInput) (*mcp.CallToolResult, any, error) {
-		if err := deps.Limiter.Wait(ctx); err != nil {
-			return nil, nil, err
-		}
-
 		peer, identity, err := deps.Client.ResolvePeerForTool(ctx, input.Chat)
 		if err != nil {
 			return toolError(fmt.Sprintf("cannot resolve chat: %v", err)), nil, nil

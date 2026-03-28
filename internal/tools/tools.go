@@ -3,16 +3,14 @@ package tools
 import (
 	"github.com/chestnykh/mcp-telegram/internal/acl"
 	"github.com/chestnykh/mcp-telegram/internal/config"
-	"github.com/chestnykh/mcp-telegram/internal/ratelimit"
 	tgclient "github.com/chestnykh/mcp-telegram/internal/telegram"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type Deps struct {
-	Client  *tgclient.Client
-	ACL     *acl.Checker
-	Limiter *ratelimit.Limiter
-	Limits  config.LimitsConfig
+	Client *tgclient.Client
+	ACL    *acl.Checker
+	Limits config.LimitsConfig
 }
 
 func Register(server *mcp.Server, deps *Deps) {

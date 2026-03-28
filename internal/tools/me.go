@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gotd/td/tg"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -18,20 +19,16 @@ func registerMe(server *mcp.Server, deps *Deps) {
 			DestructiveHint: ptrBool(false),
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ meInput) (*mcp.CallToolResult, any, error) {
-		if err := deps.Limiter.Wait(ctx); err != nil {
-			return nil, nil, err
-		}
-
-		self, err := deps.Client.API().UsersGetFullUser(ctx, nil)
+		users, err := deps.Client.API().UsersGetUsers(ctx, []tg.InputUserClass{&tg.InputUserSelf{}})
 		if err != nil {
 			return toolError(fmt.Sprintf("failed to get account info: %v", err)), nil, nil
 		}
 
-		if len(self.Users) == 0 {
+		if len(users) == 0 {
 			return toolError("no user info returned"), nil, nil
 		}
 
-		user, ok := self.Users[0].AsNotEmpty()
+		user, ok := users[0].AsNotEmpty()
 		if !ok {
 			return toolError("empty user info"), nil, nil
 		}

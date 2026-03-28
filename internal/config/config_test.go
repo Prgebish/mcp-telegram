@@ -203,6 +203,39 @@ acl:
 	}
 }
 
+func TestLoad_TildeExpansion(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	yaml := `
+telegram:
+  app_id: 1
+  api_hash: x
+  session_path: ~/.config/mcp-telegram/session.json
+acl:
+  chats:
+    - match: "@test"
+      permissions: [read]
+`
+	if err := os.WriteFile(path, []byte(yaml), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.Telegram.SessionPath == "~/.config/mcp-telegram/session.json" {
+		t.Error("tilde should be expanded in session_path")
+	}
+	home, _ := os.UserHomeDir()
+	expected := home + "/.config/mcp-telegram/session.json"
+	if cfg.Telegram.SessionPath != expected {
+		t.Errorf("session_path = %q, want %q", cfg.Telegram.SessionPath, expected)
+	}
+}
+
 func TestLoad_InvalidLogLevel(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")

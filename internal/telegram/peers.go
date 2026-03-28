@@ -29,7 +29,12 @@ func (c *Client) ResolvePeerForTool(ctx context.Context, ref string) (peers.Peer
 			return nil, acl.PeerIdentity{}, fmt.Errorf("resolve phone %s: %w", ref, err)
 		}
 		identity := PeerToIdentity(peer)
-		identity.Phone = ref
+		// Don't overwrite Phone from Raw() — it's already set by
+		// PeerToIdentity and is the canonical form from Telegram.
+		// If Raw() didn't have a phone, set it from the ref.
+		if identity.Phone == "" {
+			identity.Phone = ref
+		}
 		return peer, identity, nil
 
 	case strings.HasPrefix(ref, "user:"):
@@ -83,6 +88,9 @@ func PeerToIdentity(peer peers.Peer) acl.PeerIdentity {
 		identity.Kind = acl.KindUser
 		username, _ := p.Username()
 		identity.Username = username
+		if phone := p.Raw().Phone; phone != "" {
+			identity.Phone = "+" + phone
+		}
 	case peers.Chat:
 		identity.Kind = acl.KindChat
 	case peers.Channel:
