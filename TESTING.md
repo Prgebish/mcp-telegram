@@ -71,8 +71,6 @@ This will:
 4. Ask for 2FA password if you have one enabled
 5. Save the session to `~/.config/mcp-telegram/session.json`
 
-**NOTE: The `auth` command is not yet implemented. It needs to be added before testing.**
-
 After auth succeeds, you should see the session file:
 
 ```bash
