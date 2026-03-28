@@ -1,0 +1,26 @@
+telegram:
+  app_id: ${TG_APP_ID}
+  api_hash: ${TG_API_HASH}
+  session_path: ~/.config/mcp-telegram/session.json
+
+acl:
+  chats:
+    - match: "@username"
+      permissions: [read, draft, mark_read]
+    - match: "user:123456789"
+      permissions: [read]
+    - match: "chat:4626931529"
+      permissions: [read]
+    - match: "channel:2225853048"
+      permissions: [read, mark_read]
+
+limits:
+  max_messages_per_request: 50
+  max_dialogs_per_request: 100
+  rate:
+    requests_per_second: 2.0
+    burst: 3
+
+logging:
+  level: info
+  file: ""
