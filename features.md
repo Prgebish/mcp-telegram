@@ -73,12 +73,13 @@ channel:123456789 — канал по ID
 user:100 имеет `read`, chat:100 имеет `draft` — не путаются.
 
 ### Гранулярные права с объединением
-**Description:** Каждому чату можно назначить комбинацию из трёх прав. Если один peer описан несколькими правилами (по @username, +phone, user:ID), права объединяются — не затеняют друг друга.
+**Description:** Каждому чату можно назначить комбинацию из четырёх прав. Если один peer описан несколькими правилами (по @username, +phone, user:ID), права объединяются — не затеняют друг друга.
 
 | Право | Что разрешает |
 |-------|---------------|
 | read | Чтение истории сообщений (tg_history) |
-| draft | Сохранение черновика (tg_draft) |
+| send | Отправка сообщения (tg_send) |
+| draft | Сохранение черновика без отправки (tg_draft) |
 | mark_read | Пометка прочитанным (tg_mark_read) |
 
 **Example — объединение прав:**
@@ -146,6 +147,21 @@ Output: error "access denied: @secret_chat does not have 'read' permission"
 ```
 Input: {"chat": "@alice", "offset_id": 1232, "limit": 50}
 Output: (следующие 50 сообщений)
+```
+
+### tg_send
+**Description:** Отправляет сообщение в чат. Требует право `send`.
+
+**Example:**
+```
+Input: {"chat": "@alice", "text": "Привет!"}
+Output: "Message sent to @alice"
+```
+
+**Edge case — ACL-отказ:**
+```
+Input: {"chat": "@readonly_chat", "text": "test"}
+Output: error "access denied: @readonly_chat does not have 'send' permission"
 ```
 
 ### tg_draft

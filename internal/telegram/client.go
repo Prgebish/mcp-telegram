@@ -91,13 +91,8 @@ func (c *Client) Start(ctx context.Context) error {
 				return fmt.Errorf("init peers: %w", err)
 			}
 
-			// Warm up peer cache by fetching all dialogs via raw API
-			// and feeding entities into peers.Manager via Apply().
-			// The dialog iterator doesn't populate peers.Manager,
-			// so we use the raw API to get Users/Chats lists.
-			if err := warmUpPeerCache(ctx, api, peerManager); err != nil {
-				return fmt.Errorf("warm up peer cache: %w", err)
-			}
+			// No warm-up: peers are resolved lazily when tools request them.
+			// This avoids FLOOD_WAIT from loading all dialogs at startup.
 
 			c.mu.Lock()
 			c.api = api
@@ -168,107 +163,3 @@ func extractEntities(u tg.UpdatesClass) ([]tg.UserClass, []tg.ChatClass) {
 	}
 }
 
-// warmUpPeerCache fetches all dialogs via raw API and feeds the returned
-// User/Chat/Channel entities into peers.Manager via Apply(). This ensures
-// that access hashes are available for user:ID and channel:ID resolution
-// immediately after startup.
-func warmUpPeerCache(ctx context.Context, api *tg.Client, pm *peers.Manager) error {
-	var offsetPeer tg.InputPeerClass = &tg.InputPeerEmpty{}
-	offsetDate := 0
-	offsetID := 0
-
-	for {
-		result, err := api.MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
-			OffsetPeer: offsetPeer,
-			OffsetDate: offsetDate,
-			OffsetID:   offsetID,
-			Limit:      100,
-		})
-		if err != nil {
-			return fmt.Errorf("get dialogs: %w", err)
-		}
-
-		switch r := result.(type) {
-		case *tg.MessagesDialogs:
-			// Non-paginated response — full list.
-			return pm.Apply(ctx, r.Users, r.Chats)
-
-		case *tg.MessagesDialogsSlice:
-			if err := pm.Apply(ctx, r.Users, r.Chats); err != nil {
-				return err
-			}
-			if len(r.Dialogs) == 0 {
-				return nil
-			}
-
-			// Build offset for next page from the last dialog.
-			last := r.Dialogs[len(r.Dialogs)-1]
-			dlg, ok := last.(*tg.Dialog)
-			if !ok {
-				return nil
-			}
-
-			// Build offsetPeer from the dialog's Peer (with access hash
-			// from the entities we just applied).
-			offsetPeer = peerToInputPeer(dlg.Peer, r.Users, r.Chats)
-
-			// Find the TopMessage in the messages list to get offsetDate.
-			// Match by message ID, not by peer comparison (which would
-			// be fragile interface pointer equality).
-			offsetID = dlg.TopMessage
-			msgsByID := make(map[int]int) // msg ID -> Date
-			for _, msg := range r.Messages {
-				if m, ok := msg.(*tg.Message); ok {
-					msgsByID[m.ID] = m.Date
-				}
-			}
-			if date, ok := msgsByID[dlg.TopMessage]; ok {
-				offsetDate = date
-			}
-
-			if len(r.Dialogs) < 100 {
-				return nil
-			}
-
-		case *tg.MessagesDialogsNotModified:
-			return nil
-
-		default:
-			return nil
-		}
-	}
-}
-
-// peerToInputPeer converts a tg.PeerClass to tg.InputPeerClass using
-// access hashes from the provided user/chat lists.
-func peerToInputPeer(p tg.PeerClass, users []tg.UserClass, chats []tg.ChatClass) tg.InputPeerClass {
-	switch peer := p.(type) {
-	case *tg.PeerUser:
-		for _, u := range users {
-			if user, ok := u.(*tg.User); ok && user.ID == peer.UserID {
-				return &tg.InputPeerUser{
-					UserID:     user.ID,
-					AccessHash: user.AccessHash,
-				}
-			}
-		}
-		return &tg.InputPeerUser{UserID: peer.UserID}
-
-	case *tg.PeerChat:
-		return &tg.InputPeerChat{ChatID: peer.ChatID}
-
-	case *tg.PeerChannel:
-		for _, c := range chats {
-			if ch, ok := c.(*tg.Channel); ok && ch.ID == peer.ChannelID {
-				return &tg.InputPeerChannel{
-					ChannelID:  ch.ID,
-					AccessHash: ch.AccessHash,
-				}
-			}
-		}
-		return &tg.InputPeerChannel{ChannelID: peer.ChannelID}
-
-	default:
-		return &tg.InputPeerEmpty{}
-	}
-}

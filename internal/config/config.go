@@ -12,6 +12,7 @@ type Config struct {
 	Telegram TelegramConfig `yaml:"telegram"`
 	ACL      ACLConfig      `yaml:"acl"`
 	Limits   LimitsConfig   `yaml:"limits"`
+	Media    MediaConfig    `yaml:"media"`
 	Logging  LoggingConfig  `yaml:"logging"`
 }
 
@@ -34,6 +35,7 @@ type Permission string
 
 const (
 	PermRead     Permission = "read"
+	PermSend     Permission = "send"
 	PermDraft    Permission = "draft"
 	PermMarkRead Permission = "mark_read"
 )
@@ -47,6 +49,20 @@ type LimitsConfig struct {
 type RateConfig struct {
 	RequestsPerSecond float64 `yaml:"requests_per_second"`
 	Burst             int     `yaml:"burst"`
+}
+
+type MediaConfig struct {
+	Download  []string `yaml:"download"`  // media types to auto-download: photo, document, video, voice, audio
+	Directory string   `yaml:"directory"` // where to save downloaded media
+}
+
+func (m *MediaConfig) ShouldDownload(mediaType string) bool {
+	for _, t := range m.Download {
+		if t == mediaType {
+			return true
+		}
+	}
+	return false
 }
 
 type LoggingConfig struct {
@@ -130,10 +146,14 @@ func applyDefaults(cfg *Config) {
 	if cfg.Logging.Level == "" {
 		cfg.Logging.Level = "info"
 	}
+	if cfg.Media.Directory != "" {
+		cfg.Media.Directory = expandTilde(cfg.Media.Directory)
+	}
 }
 
 var validPermissions = map[Permission]bool{
 	PermRead:     true,
+	PermSend:     true,
 	PermDraft:    true,
 	PermMarkRead: true,
 }
@@ -185,6 +205,17 @@ func validate(cfg *Config) error {
 	}
 	if cfg.Limits.Rate.Burst <= 0 {
 		return fmt.Errorf("limits.rate.burst must be positive")
+	}
+	validMediaTypes := map[string]bool{
+		"photo": true, "document": true, "video": true, "voice": true, "audio": true,
+	}
+	for _, mt := range cfg.Media.Download {
+		if !validMediaTypes[mt] {
+			return fmt.Errorf("media.download: unknown media type %q (valid: photo, document, video, voice, audio)", mt)
+		}
+	}
+	if len(cfg.Media.Download) > 0 && cfg.Media.Directory == "" {
+		return fmt.Errorf("media.directory is required when media.download is set")
 	}
 	return nil
 }

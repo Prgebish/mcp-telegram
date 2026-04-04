@@ -11,12 +11,14 @@ type Deps struct {
 	Client *tgclient.Client
 	ACL    *acl.Checker
 	Limits config.LimitsConfig
+	Media  config.MediaConfig
 }
 
 func Register(server *mcp.Server, deps *Deps) {
 	registerMe(server, deps)
 	registerDialogs(server, deps)
 	registerHistory(server, deps)
+	registerSend(server, deps)
 	registerDraft(server, deps)
 	registerMarkRead(server, deps)
 }

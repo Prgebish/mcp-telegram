@@ -48,13 +48,22 @@ acl:
     # Replace with your real chats:
     - match: "@durov"                    # any user with username
       permissions: [read]
-    - match: "user:YOUR_FRIEND_ID"       # a user without username (get ID from tg_dialogs later)
-      permissions: [read, draft]
+    - match: "user:YOUR_FRIEND_ID"       # a user (get ID from tg_dialogs later)
+      permissions: [read, send, draft, mark_read]
     - match: "channel:YOUR_CHANNEL_ID"   # a channel you're subscribed to
       permissions: [read, mark_read]
     - match: "chat:YOUR_GROUP_ID"        # a group chat
-      permissions: [read]
+      permissions: [read, send]
 ```
+
+### Available permissions
+
+| Permission | What it does |
+|------------|-------------|
+| `read` | Read message history (`tg_history`) |
+| `send` | Send a message (`tg_send`) |
+| `draft` | Save a draft without sending (`tg_draft`) |
+| `mark_read` | Mark messages as read (`tg_mark_read`) |
 
 You can start with just one chat (e.g. `@durov`) and add more after you see IDs from `tg_dialogs`.
 
@@ -144,10 +153,19 @@ Expected: error "access denied: ... does not have 'read' permission".
 
 Expected: error "cannot resolve chat: ...".
 
-**tg_draft:**
-> Call tg_draft for @friend with text "test draft from MCP"
+**tg_send:**
+> Call tg_send for user:YOUR_FRIEND_ID with text "test message from MCP"
 
-Expected: "Draft saved in @friend". Check your Telegram app — the draft should appear in that chat.
+Expected: "Message sent to user:...". Check Telegram — the message should appear in the chat.
+
+> Call tg_send for @durov
+
+Expected: error "access denied: @durov does not have 'send' permission" (only has `read`).
+
+**tg_draft:**
+> Call tg_draft for user:YOUR_FRIEND_ID with text "test draft from MCP"
+
+Expected: "Draft saved in user:...". Check your Telegram app — the draft should appear in that chat's input field.
 
 > Call tg_draft for a chat that only has [read] permission
 
@@ -185,6 +203,8 @@ Update `config.yaml` with these real IDs and restart to test typed ID resolution
 - [ ] tg_history pagination with offset_id works
 - [ ] tg_history ACL deny works
 - [ ] tg_history unknown peer gives clear error
+- [ ] tg_send sends message (visible in Telegram app)
+- [ ] tg_send ACL deny works
 - [ ] tg_draft saves draft (visible in Telegram app)
 - [ ] tg_draft ACL deny works
 - [ ] tg_mark_read resets unread counter

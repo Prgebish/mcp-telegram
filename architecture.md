@@ -27,6 +27,7 @@ mcp-telegram/
 │   │   ├── me.go             # tg_me
 │   │   ├── dialogs.go        # tg_dialogs
 │   │   ├── history.go        # tg_history
+│   │   ├── send.go           # tg_send
 │   │   ├── draft.go          # tg_draft
 │   │   └── markread.go       # tg_mark_read
 │   └── ratelimit/
@@ -74,9 +75,9 @@ mcp-telegram/
 - Purpose: MCP-инструменты для Telegram
 - Dependencies: telegram, acl, ratelimit, config, MCP SDK
 - Interface:
-  - `Register(server *mcp.Server, deps *Deps)` — регистрирует все 5 инструментов
-- Key type: `Deps` — общие зависимости (Client, ACL, Limiter, Limits)
-- Каждый handler: limiter.Wait → resolve peer → ACL check → API call → format response
+  - `Register(server *mcp.Server, deps *Deps)` — регистрирует все 6 инструментов
+- Key type: `Deps` — общие зависимости (Client, ACL, Limits)
+- Каждый handler: resolve peer → ACL check → API call → format response (rate limiting через middleware)
 - Ошибки ACL возвращаются как `CallToolResult{IsError: true}`, не Go error
 
 ### ratelimit

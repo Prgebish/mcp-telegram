@@ -205,6 +205,7 @@ func runServe() {
 		Client: client,
 		ACL:    checker,
 		Limits: cfg.Limits,
+		Media:  cfg.Media,
 	}
 	tools.Register(server, deps)
 
