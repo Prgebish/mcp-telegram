@@ -39,6 +39,15 @@ func (m *mockResolver) ResolvePeerForTool(_ context.Context, _ string) (Peer, ac
 	return m.peer, m.identity, m.err
 }
 
+// dynamicMockResolver calls a function for each resolution (supports multi-call scenarios).
+type dynamicMockResolver struct {
+	fn func(ctx context.Context, ref string) (Peer, acl.PeerIdentity, error)
+}
+
+func (m *dynamicMockResolver) ResolvePeerForTool(ctx context.Context, ref string) (Peer, acl.PeerIdentity, error) {
+	return m.fn(ctx, ref)
+}
+
 // --- mock invoker for *tg.Client ---
 
 type funcInvoker func(ctx context.Context, input bin.Encoder, output bin.Decoder) error

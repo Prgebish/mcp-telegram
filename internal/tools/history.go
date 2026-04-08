@@ -138,7 +138,7 @@ func registerHistory(server *mcp.Server, deps *Deps) {
 				continue
 			}
 
-			msgTime := time.Unix(int64(msg.Date), 0).UTC()
+			msgTime := time.Unix(int64(msg.Date), 0).In(time.Local)
 
 			// Stop if message is older than since.
 			if !sinceTime.IsZero() && msgTime.Before(sinceTime) {
