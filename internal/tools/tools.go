@@ -76,7 +76,8 @@ func isPathUnder(path string, allowedDirs []string) bool {
 		if err != nil {
 			continue
 		}
-		if resolvedPath == resolvedAllowed || strings.HasPrefix(resolvedPath, resolvedAllowed+string(filepath.Separator)) {
+		rel, err := filepath.Rel(resolvedAllowed, resolvedPath)
+		if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			return true
 		}
 	}
