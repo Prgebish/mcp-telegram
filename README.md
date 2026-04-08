@@ -253,7 +253,7 @@ media:
     - ~/Downloads
 ```
 
-When configured, `tg_history` will automatically download media files to the specified directory. The `download_to` parameter can override the path, but only to a subdirectory of `media.directory`.
+When configured, `tg_history` will automatically download media files to the specified directory. The `download_to` parameter can override the path, but only to `media.directory` or its subdirectories.
 
 `allowed_upload_dirs` restricts which directories `tg_send` can read files from. File sending is disabled unless this is configured.
 
