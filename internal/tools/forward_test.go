@@ -151,6 +151,9 @@ func TestParseMessageIDs(t *testing.T) {
 		{" 10 , 20 , 30 ", []int{10, 20, 30}, false},
 		{"", nil, true},
 		{"abc", nil, true},
+		{"0", nil, true},
+		{"-1", nil, true},
+		{"-1,0", nil, true},
 		{"1,,2", []int{1, 2}, false}, // empty parts skipped
 	}
 	for _, tt := range tests {

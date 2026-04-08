@@ -37,6 +37,9 @@ func handleForward(ctx context.Context, deps *Deps, input forwardInput) *mcp.Cal
 	if err != nil {
 		return toolError(fmt.Sprintf("invalid message_ids: %v", err))
 	}
+	if len(ids) > deps.Limits.MaxMessagesPerRequest {
+		return toolError(fmt.Sprintf("too many messages: %d (max %d)", len(ids), deps.Limits.MaxMessagesPerRequest))
+	}
 
 	// Resolve and check source chat.
 	fromPeer, fromIdentity, err := deps.Resolver.ResolvePeerForTool(ctx, input.FromChat)
@@ -94,6 +97,9 @@ func parseMessageIDs(s string) ([]int, error) {
 		id, err := strconv.Atoi(p)
 		if err != nil {
 			return nil, fmt.Errorf("invalid ID %q: %v", p, err)
+		}
+		if id <= 0 {
+			return nil, fmt.Errorf("invalid ID %d: must be positive", id)
 		}
 		ids = append(ids, id)
 	}
