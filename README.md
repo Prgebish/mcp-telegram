@@ -4,11 +4,21 @@
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An MCP (Model Context Protocol) server that connects AI assistants like Claude to your **real Telegram account** via the User API (MTProto). Not a bot — Claude reads and sends messages as you.
+An [MCP](https://modelcontextprotocol.io) server that connects AI assistants like Claude to your **real Telegram account** via the User API (MTProto). Not a bot — Claude reads and sends messages as you.
 
 Built with [gotd/td](https://github.com/gotd/td) and the official [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk).
 
 > **Telegram API Terms of Service**: This project uses the Telegram User API. You must obtain your own `api_id` and `api_hash` from [my.telegram.org](https://my.telegram.org) and comply with the [Telegram API Terms of Service](https://core.telegram.org/api/terms). Misuse of the User API (spam, bulk messaging, scraping) may result in your account being banned. You are solely responsible for how you use this tool.
+
+## Contents
+
+- [Features](#features)
+- [What you can do with it](#what-you-can-do-with-it)
+- [How it compares to chaindead/telegram-mcp](#how-it-compares-to-chaindeadtelegram-mcp)
+- [Quick start](#quick-start)
+- [Client configuration](#client-configuration)
+- [Configuration reference](#configuration)
+- [Security](#security)
 
 ---
 
@@ -32,6 +42,32 @@ Built with [gotd/td](https://github.com/gotd/td) and the official [MCP Go SDK](h
 - Typed peer references (`user:ID`, `chat:ID`, `channel:ID`) to prevent ID collisions
 - Lazy peer resolution — avoids `FLOOD_WAIT` errors at startup
 - Global rate limiting at the RPC level
+
+## What you can do with it
+
+Once connected, you can ask your AI assistant things like:
+
+**Catch up on messages**
+- "Check my unread Telegram messages and give me a summary"
+- "What did @alice write in the last 24 hours?"
+- "Show me messages from the Dev Team chat since Monday"
+
+**Reply and communicate**
+- "Draft a response to the last message from @bob — don't send it yet"
+- "Send 'sounds good, let's meet at 3pm' to @alice"
+- "Reply to message 1234 in the project chat with my feedback"
+
+**Manage your inbox**
+- "Mark all read in the news channel"
+- "Which of my whitelisted chats have unread messages?"
+- "Download the photos from today's messages in the design chat"
+
+**Research and analyze**
+- "Find all messages mentioning the deployment in the last week"
+- "Summarize the discussion in the team chat from yesterday"
+- "What files were shared in the project channel this month?"
+
+---
 
 ## How it compares to chaindead/telegram-mcp
 
@@ -135,9 +171,17 @@ logging:
 
 Environment variables in `${...}` syntax are expanded at load time.
 
-### Connect to your MCP client
+### Client configuration
 
-Add the server to your Claude Code config (`~/.claude.json`) or Claude Desktop config:
+The server communicates over stdio — your MCP client starts and manages the process.
+
+**Claude Code** (CLI — add via command):
+
+```bash
+claude mcp add telegram -- /path/to/mcp-telegram serve --config /path/to/config.yaml
+```
+
+**Claude Desktop / Claude Code** (`~/.claude.json` or `claude_desktop_config.json`):
 
 ```json
 {
@@ -154,7 +198,20 @@ Add the server to your Claude Code config (`~/.claude.json`) or Claude Desktop c
 }
 ```
 
-The server starts in stdio mode — the MCP client manages its lifecycle.
+**Cursor** (Settings > MCP Servers > Add):
+
+```json
+{
+  "telegram": {
+    "command": "/path/to/mcp-telegram",
+    "args": ["serve", "--config", "/path/to/config.yaml"],
+    "env": {
+      "TG_APP_ID": "12345",
+      "TG_API_HASH": "your_api_hash"
+    }
+  }
+}
+```
 
 ---
 
