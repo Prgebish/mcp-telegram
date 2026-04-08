@@ -103,10 +103,10 @@ Or build from source:
 ```bash
 git clone https://github.com/Prgebish/mcp-telegram.git
 cd mcp-telegram
-go build -o mcp-telegram ./cmd/mcp-telegram
+go build ./cmd/mcp-telegram
 ```
 
-On Windows, the binary will be named `mcp-telegram.exe`.
+This produces `mcp-telegram` (or `mcp-telegram.exe` on Windows) in the current directory.
 
 ### Authenticate
 
