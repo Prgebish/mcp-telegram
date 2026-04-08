@@ -96,6 +96,7 @@ func runAuth() {
 			user := status.User
 			fmt.Printf("Already authenticated as %s %s (@%s)\n", user.FirstName, user.LastName, user.Username)
 			fmt.Printf("Session: %s\n", tgCfg.SessionPath)
+			_ = os.Chmod(tgCfg.SessionPath, 0600)
 			return nil
 		}
 
@@ -115,6 +116,7 @@ func runAuth() {
 			return err
 		}
 
+		_ = os.Chmod(tgCfg.SessionPath, 0600)
 		fmt.Println("Authentication successful!")
 		fmt.Printf("Session saved to: %s\n", tgCfg.SessionPath)
 		return nil

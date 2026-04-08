@@ -45,6 +45,29 @@ func TestIsPathUnder(t *testing.T) {
 	}
 }
 
+func TestIsPathUnder_SymlinkBypass(t *testing.T) {
+	tmpDir := t.TempDir()
+	allowed := filepath.Join(tmpDir, "allowed")
+	os.MkdirAll(allowed, 0755)
+
+	// Create a target outside the allowed directory.
+	outside := filepath.Join(tmpDir, "outside")
+	os.MkdirAll(outside, 0755)
+	os.WriteFile(filepath.Join(outside, "secret.txt"), []byte("secret"), 0600)
+
+	// Create a symlink inside allowed that points outside.
+	link := filepath.Join(allowed, "link")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("cannot create symlink: %v", err)
+	}
+
+	// /allowed/link/secret.txt should NOT be considered under /allowed
+	// because the symlink resolves to /outside/secret.txt.
+	if isPathUnder(filepath.Join(link, "secret.txt"), []string{allowed}) {
+		t.Error("symlink bypass: path through symlink should not be considered under allowed dir")
+	}
+}
+
 func TestPtrBool(t *testing.T) {
 	v := ptrBool(true)
 	if v == nil || *v != true {
