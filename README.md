@@ -31,12 +31,14 @@ Built with [gotd/td](https://github.com/gotd/td) and the official [MCP Go SDK](h
 | `tg_history` | Fetches message history with pagination, date filtering, and media download | `read` |
 | `tg_search` | Searches messages in a chat by text query, with optional sender filter | `read` |
 | `tg_send` | Sends a text message or file, with optional reply-to | `send` |
+| `tg_forward` | Forwards messages from one chat to another | `read` + `send` |
 | `tg_draft` | Saves a draft message (does not send) | `draft` |
 | `tg_mark_read` | Marks a chat as read | `mark_read` |
 
 **Additional capabilities:**
 
 - File and photo sending
+- Forward messages between chats
 - Reply to specific messages
 - Download photos and documents from message history
 - Filter history by date range (`since` / `until`)

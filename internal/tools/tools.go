@@ -42,6 +42,7 @@ func Register(server *mcp.Server, deps *Deps) {
 	registerHistory(server, deps)
 	registerSearch(server, deps)
 	registerSend(server, deps)
+	registerForward(server, deps)
 	registerDraft(server, deps)
 	registerMarkRead(server, deps)
 }
