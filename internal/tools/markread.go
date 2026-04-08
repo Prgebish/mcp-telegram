@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/chestnykh/mcp-telegram/internal/config"
-	"github.com/gotd/td/telegram/peers"
+	"github.com/Prgebish/mcp-telegram/internal/config"
 	"github.com/gotd/td/tg"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -24,35 +23,37 @@ func registerMarkRead(server *mcp.Server, deps *Deps) {
 			IdempotentHint:  true,
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input markReadInput) (*mcp.CallToolResult, any, error) {
-		peer, identity, err := deps.Client.ResolvePeerForTool(ctx, input.Chat)
-		if err != nil {
-			return toolError(fmt.Sprintf("cannot resolve chat: %v", err)), nil, nil
-		}
-
-		if !deps.ACL.Allowed(identity, config.PermMarkRead) {
-			return toolError(fmt.Sprintf("access denied: %s does not have 'mark_read' permission", input.Chat)), nil, nil
-		}
-
-		api := deps.Client.API()
-
-		switch p := peer.(type) {
-		case peers.Channel:
-			_, err = api.ChannelsReadHistory(ctx, &tg.ChannelsReadHistoryRequest{
-				Channel: p.InputChannel(),
-			})
-		default:
-			_, err = api.MessagesReadHistory(ctx, &tg.MessagesReadHistoryRequest{
-				Peer: peer.InputPeer(),
-			})
-		}
-		if err != nil {
-			return toolError(fmt.Sprintf("failed to mark as read: %v", err)), nil, nil
-		}
-
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Marked as read: %s", input.Chat)},
-			},
-		}, nil, nil
+		return handleMarkRead(ctx, deps, input), nil, nil
 	})
+}
+
+func handleMarkRead(ctx context.Context, deps *Deps, input markReadInput) *mcp.CallToolResult {
+	peer, identity, err := deps.Resolver.ResolvePeerForTool(ctx, input.Chat)
+	if err != nil {
+		return toolError(fmt.Sprintf("cannot resolve chat: %v", err))
+	}
+
+	if !deps.ACL.Allowed(identity, config.PermMarkRead) {
+		return toolError(fmt.Sprintf("access denied: %s does not have 'mark_read' permission", input.Chat))
+	}
+
+	switch p := peer.(type) {
+	case ChannelPeer:
+		_, err = deps.API.ChannelsReadHistory(ctx, &tg.ChannelsReadHistoryRequest{
+			Channel: p.InputChannel(),
+		})
+	default:
+		_, err = deps.API.MessagesReadHistory(ctx, &tg.MessagesReadHistoryRequest{
+			Peer: peer.InputPeer(),
+		})
+	}
+	if err != nil {
+		return toolError(fmt.Sprintf("failed to mark as read: %v", err))
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: fmt.Sprintf("Marked as read: %s", input.Chat)},
+		},
+	}
 }

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/chestnykh/mcp-telegram/internal/config"
-	"github.com/chestnykh/mcp-telegram/internal/ratelimit"
+	"github.com/Prgebish/mcp-telegram/internal/config"
+	"github.com/Prgebish/mcp-telegram/internal/ratelimit"
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/peers"

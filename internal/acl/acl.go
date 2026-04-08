@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chestnykh/mcp-telegram/internal/config"
+	"github.com/Prgebish/mcp-telegram/internal/config"
 )
 
 type PeerKind int

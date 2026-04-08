@@ -1,4 +1,4 @@
-module github.com/chestnykh/mcp-telegram
+module github.com/Prgebish/mcp-telegram
 
 go 1.26.1
 

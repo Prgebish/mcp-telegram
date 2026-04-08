@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chestnykh/mcp-telegram/internal/config"
+	"github.com/Prgebish/mcp-telegram/internal/config"
 	"github.com/gotd/td/telegram/uploader"
 	"github.com/gotd/td/tg"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -31,58 +31,63 @@ func registerSend(server *mcp.Server, deps *Deps) {
 			DestructiveHint: ptrBool(true),
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input sendInput) (*mcp.CallToolResult, any, error) {
-		if input.Text == "" && input.File == "" {
-			return toolError("either text or file (or both) must be provided"), nil, nil
-		}
-
-		peer, identity, err := deps.Client.ResolvePeerForTool(ctx, input.Chat)
-		if err != nil {
-			return toolError(fmt.Sprintf("cannot resolve chat: %v", err)), nil, nil
-		}
-
-		if !deps.ACL.Allowed(identity, config.PermSend) {
-			return toolError(fmt.Sprintf("access denied: %s does not have 'send' permission", input.Chat)), nil, nil
-		}
-
-		var replyTo tg.InputReplyToClass
-		var replyToID int
-		if input.ReplyTo != "" {
-			replyToID, err = strconv.Atoi(input.ReplyTo)
-			if err != nil {
-				return toolError(fmt.Sprintf("invalid reply_to: %v", err)), nil, nil
-			}
-			replyTo = &tg.InputReplyToMessage{ReplyToMsgID: replyToID}
-		}
-
-		// Send file if provided.
-		if input.File != "" {
-			return sendFile(ctx, deps, peer, input, replyTo)
-		}
-
-		// Send text message.
-		_, err = deps.Client.API().MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
-			Peer:     peer.InputPeer(),
-			Message:  input.Text,
-			RandomID: rand.Int64(),
-			ReplyTo:  replyTo,
-		})
-		if err != nil {
-			return toolError(fmt.Sprintf("failed to send message: %v", err)), nil, nil
-		}
-
-		result := fmt.Sprintf("Message sent to %s", input.Chat)
-		if replyToID > 0 {
-			result += fmt.Sprintf(" (reply to %d)", replyToID)
-		}
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: result},
-			},
-		}, nil, nil
+		return handleSend(ctx, deps, input), nil, nil
 	})
 }
 
-func sendFile(ctx context.Context, deps *Deps, peer interface{ InputPeer() tg.InputPeerClass }, input sendInput, replyTo tg.InputReplyToClass) (*mcp.CallToolResult, any, error) {
+func handleSend(ctx context.Context, deps *Deps, input sendInput) *mcp.CallToolResult {
+	if input.Text == "" && input.File == "" {
+		return toolError("either text or file (or both) must be provided")
+	}
+
+	peer, identity, err := deps.Resolver.ResolvePeerForTool(ctx, input.Chat)
+	if err != nil {
+		return toolError(fmt.Sprintf("cannot resolve chat: %v", err))
+	}
+
+	if !deps.ACL.Allowed(identity, config.PermSend) {
+		return toolError(fmt.Sprintf("access denied: %s does not have 'send' permission", input.Chat))
+	}
+
+	var replyTo tg.InputReplyToClass
+	var replyToID int
+	if input.ReplyTo != "" {
+		replyToID, err = strconv.Atoi(input.ReplyTo)
+		if err != nil {
+			return toolError(fmt.Sprintf("invalid reply_to: %v", err))
+		}
+		replyTo = &tg.InputReplyToMessage{ReplyToMsgID: replyToID}
+	}
+
+	// Send file if provided.
+	if input.File != "" {
+		result, _, _ := sendFile(ctx, deps, peer, input, replyTo)
+		return result
+	}
+
+	// Send text message.
+	_, err = deps.API.MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
+		Peer:     peer.InputPeer(),
+		Message:  input.Text,
+		RandomID: rand.Int64(),
+		ReplyTo:  replyTo,
+	})
+	if err != nil {
+		return toolError(fmt.Sprintf("failed to send message: %v", err))
+	}
+
+	result := fmt.Sprintf("Message sent to %s", input.Chat)
+	if replyToID > 0 {
+		result += fmt.Sprintf(" (reply to %d)", replyToID)
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: result},
+		},
+	}
+}
+
+func sendFile(ctx context.Context, deps *Deps, peer Peer, input sendInput, replyTo tg.InputReplyToClass) (*mcp.CallToolResult, any, error) {
 	// Verify file exists.
 	info, err := os.Stat(input.File)
 	if err != nil {
@@ -93,7 +98,7 @@ func sendFile(ctx context.Context, deps *Deps, peer interface{ InputPeer() tg.In
 	}
 
 	// Upload file.
-	u := uploader.NewUploader(deps.Client.API())
+	u := uploader.NewUploader(deps.API)
 	uploaded, err := u.FromPath(ctx, input.File)
 	if err != nil {
 		return toolError(fmt.Sprintf("failed to upload file: %v", err)), nil, nil
@@ -118,7 +123,7 @@ func sendFile(ctx context.Context, deps *Deps, peer interface{ InputPeer() tg.In
 	}
 
 	caption := input.Text
-	_, err = deps.Client.API().MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	_, err = deps.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     peer.InputPeer(),
 		Media:    media,
 		Message:  caption,

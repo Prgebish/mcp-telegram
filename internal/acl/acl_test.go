@@ -3,7 +3,7 @@ package acl
 import (
 	"testing"
 
-	"github.com/chestnykh/mcp-telegram/internal/config"
+	"github.com/Prgebish/mcp-telegram/internal/config"
 )
 
 func TestChecker_UsernameMatch(t *testing.T) {

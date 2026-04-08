@@ -1,5 +1,10 @@
 repo/
 /mcp-telegram
+/mcp-telegram.exe
 config.yaml
 test_output.md
 .mcp.json
+task_plan.md
+architecture.md
+features.md
+TESTING.md

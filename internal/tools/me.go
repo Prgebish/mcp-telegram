@@ -19,32 +19,36 @@ func registerMe(server *mcp.Server, deps *Deps) {
 			DestructiveHint: ptrBool(false),
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ meInput) (*mcp.CallToolResult, any, error) {
-		users, err := deps.Client.API().UsersGetUsers(ctx, []tg.InputUserClass{&tg.InputUserSelf{}})
-		if err != nil {
-			return toolError(fmt.Sprintf("failed to get account info: %v", err)), nil, nil
-		}
-
-		if len(users) == 0 {
-			return toolError("no user info returned"), nil, nil
-		}
-
-		user, ok := users[0].AsNotEmpty()
-		if !ok {
-			return toolError("empty user info"), nil, nil
-		}
-
-		text := fmt.Sprintf("ID: %d\nFirst name: %s", user.ID, user.FirstName)
-		if user.LastName != "" {
-			text += fmt.Sprintf("\nLast name: %s", user.LastName)
-		}
-		if user.Username != "" {
-			text += fmt.Sprintf("\nUsername: @%s", user.Username)
-		}
-
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: text},
-			},
-		}, nil, nil
+		return handleMe(ctx, deps), nil, nil
 	})
+}
+
+func handleMe(ctx context.Context, deps *Deps) *mcp.CallToolResult {
+	users, err := deps.API.UsersGetUsers(ctx, []tg.InputUserClass{&tg.InputUserSelf{}})
+	if err != nil {
+		return toolError(fmt.Sprintf("failed to get account info: %v", err))
+	}
+
+	if len(users) == 0 {
+		return toolError("no user info returned")
+	}
+
+	user, ok := users[0].AsNotEmpty()
+	if !ok {
+		return toolError("empty user info")
+	}
+
+	text := fmt.Sprintf("ID: %d\nFirst name: %s", user.ID, user.FirstName)
+	if user.LastName != "" {
+		text += fmt.Sprintf("\nLast name: %s", user.LastName)
+	}
+	if user.Username != "" {
+		text += fmt.Sprintf("\nUsername: @%s", user.Username)
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: text},
+		},
+	}
 }

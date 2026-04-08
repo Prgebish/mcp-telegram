@@ -3,7 +3,7 @@ package tools
 import (
 	"testing"
 
-	"github.com/chestnykh/mcp-telegram/internal/acl"
+	"github.com/Prgebish/mcp-telegram/internal/acl"
 	"github.com/gotd/td/telegram/message/peer"
 	"github.com/gotd/td/tg"
 )

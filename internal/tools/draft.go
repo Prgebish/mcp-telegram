@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/chestnykh/mcp-telegram/internal/config"
+	"github.com/Prgebish/mcp-telegram/internal/config"
 	"github.com/gotd/td/tg"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -24,27 +24,31 @@ func registerDraft(server *mcp.Server, deps *Deps) {
 			IdempotentHint:  true,
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input draftInput) (*mcp.CallToolResult, any, error) {
-		peer, identity, err := deps.Client.ResolvePeerForTool(ctx, input.Chat)
-		if err != nil {
-			return toolError(fmt.Sprintf("cannot resolve chat: %v", err)), nil, nil
-		}
-
-		if !deps.ACL.Allowed(identity, config.PermDraft) {
-			return toolError(fmt.Sprintf("access denied: %s does not have 'draft' permission", input.Chat)), nil, nil
-		}
-
-		_, err = deps.Client.API().MessagesSaveDraft(ctx, &tg.MessagesSaveDraftRequest{
-			Peer:    peer.InputPeer(),
-			Message: input.Text,
-		})
-		if err != nil {
-			return toolError(fmt.Sprintf("failed to save draft: %v", err)), nil, nil
-		}
-
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("Draft saved in %s", input.Chat)},
-			},
-		}, nil, nil
+		return handleDraft(ctx, deps, input), nil, nil
 	})
+}
+
+func handleDraft(ctx context.Context, deps *Deps, input draftInput) *mcp.CallToolResult {
+	peer, identity, err := deps.Resolver.ResolvePeerForTool(ctx, input.Chat)
+	if err != nil {
+		return toolError(fmt.Sprintf("cannot resolve chat: %v", err))
+	}
+
+	if !deps.ACL.Allowed(identity, config.PermDraft) {
+		return toolError(fmt.Sprintf("access denied: %s does not have 'draft' permission", input.Chat))
+	}
+
+	_, err = deps.API.MessagesSaveDraft(ctx, &tg.MessagesSaveDraftRequest{
+		Peer:    peer.InputPeer(),
+		Message: input.Text,
+	})
+	if err != nil {
+		return toolError(fmt.Sprintf("failed to save draft: %v", err))
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: fmt.Sprintf("Draft saved in %s", input.Chat)},
+		},
+	}
 }

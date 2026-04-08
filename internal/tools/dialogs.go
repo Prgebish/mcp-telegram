@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chestnykh/mcp-telegram/internal/acl"
+	"github.com/Prgebish/mcp-telegram/internal/acl"
 	"github.com/gotd/td/telegram/message/peer"
 	"github.com/gotd/td/telegram/query/dialogs"
 	"github.com/gotd/td/tg"
@@ -25,8 +25,7 @@ func registerDialogs(server *mcp.Server, deps *Deps) {
 			DestructiveHint: ptrBool(false),
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input dialogsInput) (*mcp.CallToolResult, any, error) {
-		api := deps.Client.API()
-		iter := dialogs.NewQueryBuilder(api).GetDialogs().BatchSize(100).Iter()
+		iter := dialogs.NewQueryBuilder(deps.API).GetDialogs().BatchSize(100).Iter()
 
 		var lines []string
 		count := 0

@@ -3,7 +3,7 @@ package ratelimit
 import (
 	"context"
 
-	"github.com/chestnykh/mcp-telegram/internal/config"
+	"github.com/Prgebish/mcp-telegram/internal/config"
 	"github.com/gotd/td/bin"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/tg"

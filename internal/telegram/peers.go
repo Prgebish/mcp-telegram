@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chestnykh/mcp-telegram/internal/acl"
+	"github.com/Prgebish/mcp-telegram/internal/acl"
 	"github.com/gotd/td/telegram/peers"
 )
 

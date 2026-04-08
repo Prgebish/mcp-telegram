@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chestnykh/mcp-telegram/internal/config"
+	"github.com/Prgebish/mcp-telegram/internal/config"
 	"github.com/gotd/td/telegram/downloader"
 	"github.com/gotd/td/telegram/message/peer"
 	"github.com/gotd/td/telegram/query/messages"
@@ -17,11 +17,12 @@ import (
 )
 
 type historyInput struct {
-	Chat     string `json:"chat" jsonschema:"required,Chat reference: @username, user:ID, chat:ID, or channel:ID"`
-	Limit    int    `json:"limit,omitempty" jsonschema:"Max messages to return (default from config)"`
-	OffsetID int    `json:"offset_id,omitempty" jsonschema:"Message ID to start from for pagination"`
-	Since    string `json:"since,omitempty" jsonschema:"Read messages from this date (format: 2006-01-02 or 2006-01-02 15:04)"`
-	Until    string `json:"until,omitempty" jsonschema:"Read messages until this date (format: 2006-01-02 or 2006-01-02 15:04)"`
+	Chat       string `json:"chat" jsonschema:"required,Chat reference: @username, user:ID, chat:ID, or channel:ID"`
+	Limit      int    `json:"limit,omitempty" jsonschema:"Max messages to return (default from config)"`
+	OffsetID   int    `json:"offset_id,omitempty" jsonschema:"Message ID to start from for pagination"`
+	Since      string `json:"since,omitempty" jsonschema:"Read messages from this date (format: 2006-01-02 or 2006-01-02 15:04)"`
+	Until      string `json:"until,omitempty" jsonschema:"Read messages until this date (format: 2006-01-02 or 2006-01-02 15:04)"`
+	DownloadTo string `json:"download_to,omitempty" jsonschema:"Directory to download media to (overrides config)"`
 }
 
 var dateFormats = []string{
@@ -48,7 +49,7 @@ func registerHistory(server *mcp.Server, deps *Deps) {
 			DestructiveHint: ptrBool(false),
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input historyInput) (*mcp.CallToolResult, any, error) {
-		peer, identity, err := deps.Client.ResolvePeerForTool(ctx, input.Chat)
+		peer, identity, err := deps.Resolver.ResolvePeerForTool(ctx, input.Chat)
 		if err != nil {
 			return toolError(fmt.Sprintf("cannot resolve chat: %v", err)), nil, nil
 		}
@@ -81,7 +82,7 @@ func registerHistory(server *mcp.Server, deps *Deps) {
 			limit = deps.Limits.MaxMessagesPerRequest
 		}
 
-		qb := messages.NewQueryBuilder(deps.Client.API()).
+		qb := messages.NewQueryBuilder(deps.API).
 			GetHistory(peer.InputPeer()).
 			BatchSize(limit)
 
@@ -95,12 +96,24 @@ func registerHistory(server *mcp.Server, deps *Deps) {
 			qb = qb.OffsetDate(int(untilTime.Unix()) + 1)
 		}
 
-		// Ensure media directory exists if downloads are configured.
-		if len(deps.Media.Download) > 0 && deps.Media.Directory != "" {
-			if err := os.MkdirAll(deps.Media.Directory, 0755); err != nil {
+		// Build effective media config: download_to overrides config.
+		mediaCfg := deps.Media
+		if input.DownloadTo != "" {
+			dir := expandTilde(input.DownloadTo)
+			mediaCfg = config.MediaConfig{
+				Download:  []string{"photo", "document", "video", "voice", "audio"},
+				Directory: dir,
+			}
+		}
+		if len(mediaCfg.Download) > 0 && mediaCfg.Directory != "" {
+			if err := os.MkdirAll(mediaCfg.Directory, 0700); err != nil {
 				return toolError(fmt.Sprintf("cannot create media directory: %v", err)), nil, nil
 			}
 		}
+
+		// Use effective media config for this request.
+		effectiveDeps := *deps
+		effectiveDeps.Media = mediaCfg
 
 		dl := downloader.NewDownloader()
 		iter := qb.Iter()
@@ -135,10 +148,10 @@ func registerHistory(server *mcp.Server, deps *Deps) {
 			ts := msgTime.Format("2006-01-02 15:04")
 			text := msg.Message
 			if text == "" {
-				text = formatMedia(ctx, deps, dl, msg, elem.Peer)
+				text = formatMedia(ctx, &effectiveDeps, dl, msg, elem.Peer)
 			} else if msg.Media != nil {
 				// Message has both text and media.
-				mediaText := formatMedia(ctx, deps, dl, msg, elem.Peer)
+				mediaText := formatMedia(ctx, &effectiveDeps, dl, msg, elem.Peer)
 				text += " " + mediaText
 			}
 
@@ -185,7 +198,7 @@ func formatMedia(ctx context.Context, deps *Deps, dl *downloader.Downloader, msg
 	switch media := msg.Media.(type) {
 	case *tg.MessageMediaPhoto:
 		if deps.Media.ShouldDownload("photo") {
-			if path, err := downloadPhoto(ctx, deps, dl, media, msg.ID); err == nil {
+			if path, err := downloadPhoto(ctx, deps, dl, media, peerIDPrefix(dialogPeer), msg.ID); err == nil {
 				label = fmt.Sprintf("[photo: %s]", path)
 				break
 			}
@@ -203,7 +216,7 @@ func formatMedia(ctx context.Context, deps *Deps, dl *downloader.Downloader, msg
 		}
 		mediaType := classifyDocument(doc)
 		if deps.Media.ShouldDownload(mediaType) {
-			if path, err := downloadDocument(ctx, deps, dl, doc, msg.ID); err == nil {
+			if path, err := downloadDocument(ctx, deps, dl, doc, peerIDPrefix(dialogPeer), msg.ID); err == nil {
 				label = fmt.Sprintf("[%s: %s]", mediaType, path)
 				break
 			}
@@ -234,12 +247,10 @@ func formatMedia(ctx context.Context, deps *Deps, dl *downloader.Downloader, msg
 }
 
 // telegramLink builds a deep link to open a specific message in Telegram.
-// Only works for groups and channels — private 1-on-1 chats don't support
-// message deep links in Telegram.
+// Only works for channels/supergroups — private chats and basic groups
+// don't support message deep links.
 func telegramLink(dialogPeer tg.InputPeerClass, msgID int) string {
 	switch p := dialogPeer.(type) {
-	case *tg.InputPeerChat:
-		return fmt.Sprintf("tg://privatepost?channel=%d&post=%d", p.ChatID, msgID)
 	case *tg.InputPeerChannel:
 		return fmt.Sprintf("tg://privatepost?channel=%d&post=%d", p.ChannelID, msgID)
 	default:
@@ -247,7 +258,22 @@ func telegramLink(dialogPeer tg.InputPeerClass, msgID int) string {
 	}
 }
 
-func downloadPhoto(ctx context.Context, deps *Deps, dl *downloader.Downloader, media *tg.MessageMediaPhoto, msgID int) (string, error) {
+// peerIDPrefix returns a string prefix for file naming to avoid collisions
+// between messages with the same ID in different chats.
+func peerIDPrefix(p tg.InputPeerClass) string {
+	switch peer := p.(type) {
+	case *tg.InputPeerUser:
+		return fmt.Sprintf("u%d", peer.UserID)
+	case *tg.InputPeerChat:
+		return fmt.Sprintf("c%d", peer.ChatID)
+	case *tg.InputPeerChannel:
+		return fmt.Sprintf("ch%d", peer.ChannelID)
+	default:
+		return "unknown"
+	}
+}
+
+func downloadPhoto(ctx context.Context, deps *Deps, dl *downloader.Downloader, media *tg.MessageMediaPhoto, chatPrefix string, msgID int) (string, error) {
 	photo, ok := media.Photo.AsNotEmpty()
 	if !ok {
 		return "", fmt.Errorf("empty photo")
@@ -285,7 +311,7 @@ func downloadPhoto(ctx context.Context, deps *Deps, dl *downloader.Downloader, m
 		sizeType = s.Type
 	}
 
-	filename := fmt.Sprintf("%d.jpg", msgID)
+	filename := fmt.Sprintf("%s_%d.jpg", chatPrefix, msgID)
 	path := filepath.Join(deps.Media.Directory, filename)
 
 	loc := &tg.InputPhotoFileLocation{
@@ -295,13 +321,13 @@ func downloadPhoto(ctx context.Context, deps *Deps, dl *downloader.Downloader, m
 		ThumbSize:     sizeType,
 	}
 
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
 
-	_, err = dl.Download(deps.Client.API(), loc).Stream(ctx, f)
+	_, err = dl.Download(deps.API, loc).Stream(ctx, f)
 	if err != nil {
 		os.Remove(path)
 		return "", err
@@ -310,7 +336,7 @@ func downloadPhoto(ctx context.Context, deps *Deps, dl *downloader.Downloader, m
 	return path, nil
 }
 
-func downloadDocument(ctx context.Context, deps *Deps, dl *downloader.Downloader, doc *tg.Document, msgID int) (string, error) {
+func downloadDocument(ctx context.Context, deps *Deps, dl *downloader.Downloader, doc *tg.Document, chatPrefix string, msgID int) (string, error) {
 	ext := ".bin"
 	for _, attr := range doc.Attributes {
 		if fn, ok := attr.(*tg.DocumentAttributeFilename); ok {
@@ -319,7 +345,7 @@ func downloadDocument(ctx context.Context, deps *Deps, dl *downloader.Downloader
 		}
 	}
 
-	filename := fmt.Sprintf("%d%s", msgID, ext)
+	filename := fmt.Sprintf("%s_%d%s", chatPrefix, msgID, ext)
 	path := filepath.Join(deps.Media.Directory, filename)
 
 	loc := &tg.InputDocumentFileLocation{
@@ -328,13 +354,13 @@ func downloadDocument(ctx context.Context, deps *Deps, dl *downloader.Downloader
 		FileReference: doc.FileReference,
 	}
 
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
 
-	_, err = dl.Download(deps.Client.API(), loc).Stream(ctx, f)
+	_, err = dl.Download(deps.API, loc).Stream(ctx, f)
 	if err != nil {
 		os.Remove(path)
 		return "", err
@@ -358,6 +384,17 @@ func classifyDocument(doc *tg.Document) string {
 		}
 	}
 	return "document"
+}
+
+func expandTilde(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return path
+		}
+		return home + path[1:]
+	}
+	return path
 }
 
 // resolveFromName extracts sender name from message using entities from

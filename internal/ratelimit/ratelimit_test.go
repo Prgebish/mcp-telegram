@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chestnykh/mcp-telegram/internal/config"
+	"github.com/Prgebish/mcp-telegram/internal/config"
 	"github.com/gotd/td/bin"
 	tg "github.com/gotd/td/telegram"
 )

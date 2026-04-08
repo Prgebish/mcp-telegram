@@ -11,11 +11,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/chestnykh/mcp-telegram/internal/acl"
-	"github.com/chestnykh/mcp-telegram/internal/config"
-	"github.com/chestnykh/mcp-telegram/internal/ratelimit"
-	tgclient "github.com/chestnykh/mcp-telegram/internal/telegram"
-	"github.com/chestnykh/mcp-telegram/internal/tools"
+	"github.com/Prgebish/mcp-telegram/internal/acl"
+	"github.com/Prgebish/mcp-telegram/internal/config"
+	"github.com/Prgebish/mcp-telegram/internal/ratelimit"
+	tgclient "github.com/Prgebish/mcp-telegram/internal/telegram"
+	"github.com/Prgebish/mcp-telegram/internal/tools"
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/auth"
@@ -202,10 +202,11 @@ func runServe() {
 	}, nil)
 
 	deps := &tools.Deps{
-		Client: client,
-		ACL:    checker,
-		Limits: cfg.Limits,
-		Media:  cfg.Media,
+		Resolver: &peerResolver{c: client},
+		API:      client.API(),
+		ACL:      checker,
+		Limits:   cfg.Limits,
+		Media:    cfg.Media,
 	}
 	tools.Register(server, deps)
 
@@ -214,6 +215,15 @@ func runServe() {
 		logger.Error("MCP server error", "error", err)
 		os.Exit(1)
 	}
+}
+
+// peerResolver adapts *tgclient.Client to the tools.PeerResolver interface.
+type peerResolver struct {
+	c *tgclient.Client
+}
+
+func (r *peerResolver) ResolvePeerForTool(ctx context.Context, ref string) (tools.Peer, acl.PeerIdentity, error) {
+	return r.c.ResolvePeerForTool(ctx, ref)
 }
 
 // --- helpers ---
