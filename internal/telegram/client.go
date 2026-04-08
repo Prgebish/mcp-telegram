@@ -100,6 +100,7 @@ func (c *Client) Start(ctx context.Context) error {
 			c.mu.Unlock()
 
 			close(c.ready)
+			c.enforceSessionPermissions()
 			<-ctx.Done()
 			return ctx.Err()
 		})

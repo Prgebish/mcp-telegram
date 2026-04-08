@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/Prgebish/mcp-telegram/internal/acl"
 	"github.com/Prgebish/mcp-telegram/internal/config"
@@ -182,6 +183,16 @@ func TestParseDate(t *testing.T) {
 				t.Errorf("parseDate(%q) = %q, want %q", tt.input, s, tt.wantStr)
 			}
 		})
+	}
+}
+
+func TestParseDate_UsesLocalTimezone(t *testing.T) {
+	got, err := parseDate("2024-06-15 12:00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Location() != time.Local {
+		t.Errorf("parseDate should use local timezone, got %v", got.Location())
 	}
 }
 

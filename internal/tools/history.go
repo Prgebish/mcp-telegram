@@ -33,7 +33,7 @@ var dateFormats = []string{
 
 func parseDate(s string) (time.Time, error) {
 	for _, f := range dateFormats {
-		if t, err := time.Parse(f, s); err == nil {
+		if t, err := time.ParseInLocation(f, s, time.Local); err == nil {
 			return t, nil
 		}
 	}
@@ -99,7 +99,13 @@ func registerHistory(server *mcp.Server, deps *Deps) {
 		// Build effective media config: download_to overrides config.
 		mediaCfg := deps.Media
 		if input.DownloadTo != "" {
+			if deps.Media.Directory == "" {
+				return toolError("download_to requires media.directory to be configured"), nil, nil
+			}
 			dir := expandTilde(input.DownloadTo)
+			if !isPathUnder(dir, []string{deps.Media.Directory}) {
+				return toolError(fmt.Sprintf("download_to must be under media.directory (%s)", deps.Media.Directory)), nil, nil
+			}
 			mediaCfg = config.MediaConfig{
 				Download:  []string{"photo", "document", "video", "voice", "audio"},
 				Directory: dir,

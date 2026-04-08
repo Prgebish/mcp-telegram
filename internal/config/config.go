@@ -52,8 +52,9 @@ type RateConfig struct {
 }
 
 type MediaConfig struct {
-	Download  []string `yaml:"download"`  // media types to auto-download: photo, document, video, voice, audio
-	Directory string   `yaml:"directory"` // where to save downloaded media
+	Download          []string `yaml:"download"`            // media types to auto-download: photo, document, video, voice, audio
+	Directory         string   `yaml:"directory"`           // where to save downloaded media
+	AllowedUploadDirs []string `yaml:"allowed_upload_dirs"` // directories from which tg_send can read files
 }
 
 func (m *MediaConfig) ShouldDownload(mediaType string) bool {
@@ -148,6 +149,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Media.Directory != "" {
 		cfg.Media.Directory = expandTilde(cfg.Media.Directory)
+	}
+	for i, dir := range cfg.Media.AllowedUploadDirs {
+		cfg.Media.AllowedUploadDirs[i] = expandTilde(dir)
 	}
 }
 

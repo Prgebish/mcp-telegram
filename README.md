@@ -248,19 +248,26 @@ The `limits.rate` section configures a global token bucket that wraps all Telegr
 media:
   download: [photo, document, video, voice, audio]
   directory: ~/telegram-media
+  allowed_upload_dirs:
+    - ~/Documents
+    - ~/Downloads
 ```
 
-When configured, `tg_history` will automatically download media files to the specified directory. The `download_to` parameter in `tg_history` can override this per-request.
+When configured, `tg_history` will automatically download media files to the specified directory. The `download_to` parameter can override the path, but only to a subdirectory of `media.directory`.
+
+`allowed_upload_dirs` restricts which directories `tg_send` can read files from. File sending is disabled unless this is configured.
 
 ---
 
 ## Security
 
 - **Default-deny ACL** — no chat is accessible unless explicitly whitelisted
-- **Session file permissions** — created with mode `0600` (owner-only read/write)
+- **Filesystem boundary** — `tg_send` can only read files from `allowed_upload_dirs`; `download_to` is restricted to subdirectories of `media.directory`
+- **Session file permissions** — enforced to `0600` (owner-only read/write)
 - **No secret logging** — API hashes, session tokens, and auth keys are never written to logs
 - **No access hash exposure** — internal Telegram access hashes are stripped from all tool output
 - **Rate limiting** — prevents accidental API abuse
+- **Local timezone** — date filters use your system timezone, not UTC
 
 ---
 

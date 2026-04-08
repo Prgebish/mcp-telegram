@@ -81,6 +81,29 @@ func TestHandleSend_ACLDeniedHandler(t *testing.T) {
 	}
 }
 
+func TestHandleSend_FileNoAllowedDirs(t *testing.T) {
+	deps := newTestDeps(newAllowedResolver(), nil, config.PermSend)
+	result := handleSend(context.Background(), deps, sendInput{Chat: "@testchat", File: "/etc/passwd"})
+	if !result.IsError {
+		t.Fatal("expected error")
+	}
+	if text := resultText(result); !strings.Contains(text, "allowed_upload_dirs") {
+		t.Errorf("error = %q, want mention of allowed_upload_dirs", text)
+	}
+}
+
+func TestHandleSend_FileOutsideAllowedDirs(t *testing.T) {
+	deps := newTestDeps(newAllowedResolver(), nil, config.PermSend)
+	deps.Media.AllowedUploadDirs = []string{"/tmp/safe"}
+	result := handleSend(context.Background(), deps, sendInput{Chat: "@testchat", File: "/etc/passwd"})
+	if !result.IsError {
+		t.Fatal("expected error")
+	}
+	if text := resultText(result); !strings.Contains(text, "not under any allowed") {
+		t.Errorf("error = %q, want 'not under any allowed'", text)
+	}
+}
+
 func TestHandleSend_InvalidReplyTo(t *testing.T) {
 	api := mockTgClient(func(_ context.Context, _ bin.Encoder, _ bin.Decoder) error {
 		return nil

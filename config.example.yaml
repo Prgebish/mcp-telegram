@@ -21,6 +21,13 @@ limits:
     requests_per_second: 2.0
     burst: 3
 
+media:
+  # download: [photo, document, video, voice, audio]
+  # directory: ~/telegram-media
+  # allowed_upload_dirs:
+  #   - ~/Documents
+  #   - ~/Downloads
+
 logging:
   level: info
   file: ""

@@ -2,6 +2,8 @@ package tools
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 
 	"github.com/Prgebish/mcp-telegram/internal/acl"
 	"github.com/Prgebish/mcp-telegram/internal/config"
@@ -45,6 +47,24 @@ func Register(server *mcp.Server, deps *Deps) {
 
 func ptrBool(v bool) *bool {
 	return &v
+}
+
+// isPathUnder checks whether path resolves to a location under one of the allowed directories.
+func isPathUnder(path string, allowedDirs []string) bool {
+	absPath, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+	for _, dir := range allowedDirs {
+		absDir, err := filepath.Abs(filepath.Clean(dir))
+		if err != nil {
+			continue
+		}
+		if absPath == absDir || strings.HasPrefix(absPath, absDir+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 func toolError(msg string) *mcp.CallToolResult {

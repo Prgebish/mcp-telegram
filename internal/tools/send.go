@@ -40,6 +40,15 @@ func handleSend(ctx context.Context, deps *Deps, input sendInput) *mcp.CallToolR
 		return toolError("either text or file (or both) must be provided")
 	}
 
+	if input.File != "" {
+		if len(deps.Media.AllowedUploadDirs) == 0 {
+			return toolError("file sending requires media.allowed_upload_dirs to be configured")
+		}
+		if !isPathUnder(input.File, deps.Media.AllowedUploadDirs) {
+			return toolError("file path is not under any allowed upload directory")
+		}
+	}
+
 	peer, identity, err := deps.Resolver.ResolvePeerForTool(ctx, input.Chat)
 	if err != nil {
 		return toolError(fmt.Sprintf("cannot resolve chat: %v", err))
