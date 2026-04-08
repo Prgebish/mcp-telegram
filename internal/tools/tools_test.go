@@ -64,7 +64,16 @@ func TestIsPathUnder_SymlinkBypass(t *testing.T) {
 	// /allowed/link/secret.txt should NOT be considered under /allowed
 	// because the symlink resolves to /outside/secret.txt.
 	if isPathUnder(filepath.Join(link, "secret.txt"), []string{allowed}) {
-		t.Error("symlink bypass: path through symlink should not be considered under allowed dir")
+		t.Error("symlink bypass: path through symlink directory should not be considered under allowed dir")
+	}
+
+	// Leaf symlink: /allowed/secret_link -> /outside/secret.txt
+	leafLink := filepath.Join(allowed, "secret_link")
+	if err := os.Symlink(filepath.Join(outside, "secret.txt"), leafLink); err != nil {
+		t.Skipf("cannot create leaf symlink: %v", err)
+	}
+	if isPathUnder(leafLink, []string{allowed}) {
+		t.Error("symlink bypass: leaf symlink pointing outside should not be considered under allowed dir")
 	}
 }
 

@@ -50,21 +50,22 @@ func ptrBool(v bool) *bool {
 }
 
 // isPathUnder checks whether path resolves to a location under one of the allowed directories.
-// Symlinks are resolved to prevent bypass via /allowed/link -> /etc.
+// All symlinks (including the leaf component) are resolved to prevent bypass.
 func isPathUnder(path string, allowedDirs []string) bool {
 	absPath, err := filepath.Abs(filepath.Clean(path))
 	if err != nil {
 		return false
 	}
-	// Resolve symlinks in the existing prefix of the path.
-	// EvalSymlinks fails if the full path doesn't exist (e.g. new file),
-	// so resolve the directory part which should exist.
-	dir := filepath.Dir(absPath)
-	resolvedDir, err := filepath.EvalSymlinks(dir)
+	// Try to resolve the full path (covers existing files and leaf symlinks).
+	// If it doesn't exist yet (new file), resolve the parent directory.
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
 	if err != nil {
-		return false
+		parentDir, err := filepath.EvalSymlinks(filepath.Dir(absPath))
+		if err != nil {
+			return false
+		}
+		resolvedPath = filepath.Join(parentDir, filepath.Base(absPath))
 	}
-	resolvedPath := filepath.Join(resolvedDir, filepath.Base(absPath))
 
 	for _, allowed := range allowedDirs {
 		absAllowed, err := filepath.Abs(filepath.Clean(allowed))
