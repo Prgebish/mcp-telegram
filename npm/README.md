@@ -103,12 +103,6 @@ Once connected, you can ask your AI assistant things like:
 brew install Prgebish/tap/mcp-telegram
 ```
 
-**NPX (no install needed):**
-
-```bash
-npx @prgebish/mcp-telegram serve --config config.yaml
-```
-
 **Pre-built binaries (macOS / Linux / Windows):**
 
 Download from [GitHub Releases](https://github.com/Prgebish/mcp-telegram/releases).

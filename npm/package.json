@@ -1,0 +1,30 @@
+{
+  "name": "@prgebish/mcp-telegram",
+  "version": "0.2.0",
+  "description": "MCP server for Telegram — connect Claude to your real Telegram account via User API (MTProto)",
+  "bin": {
+    "mcp-telegram": "run.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "telegram",
+    "mtproto",
+    "claude",
+    "model-context-protocol",
+    "ai"
+  ],
+  "author": "Vadim Pavlov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Prgebish/mcp-telegram"
+  },
+  "homepage": "https://github.com/Prgebish/mcp-telegram",
+  "engines": {
+    "node": ">=16"
+  }
+}
