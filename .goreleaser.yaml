@@ -23,6 +23,14 @@ archives:
 checksum:
   name_template: "checksums.txt"
 
+brews:
+  - repository:
+      owner: Prgebish
+      name: homebrew-tap
+    homepage: https://github.com/Prgebish/mcp-telegram
+    description: "MCP server for Telegram — connect Claude to your real Telegram account"
+    license: MIT
+
 changelog:
   sort: asc
   filters:

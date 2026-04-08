@@ -92,13 +92,25 @@ Once connected, you can ask your AI assistant things like:
 - A Telegram account
 - API credentials from [my.telegram.org](https://my.telegram.org) (`api_id` and `api_hash`)
 
-### Build
+### Install
+
+**Homebrew (macOS / Linux):**
+
+```bash
+brew install Prgebish/tap/mcp-telegram
+```
+
+**Pre-built binaries (macOS / Linux / Windows):**
+
+Download from [GitHub Releases](https://github.com/Prgebish/mcp-telegram/releases).
+
+**Go install:**
 
 ```bash
 go install github.com/Prgebish/mcp-telegram/cmd/mcp-telegram@latest
 ```
 
-Or build from source:
+**From source:**
 
 ```bash
 git clone https://github.com/Prgebish/mcp-telegram.git
