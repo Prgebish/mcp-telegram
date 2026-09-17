@@ -20,6 +20,9 @@ type sendInput struct {
 	Text    string `json:"text,omitempty" jsonschema:"Message text to send"`
 	File    string `json:"file,omitempty" jsonschema:"Absolute path to a file to send"`
 	ReplyTo string `json:"reply_to,omitempty" jsonschema:"Message ID to reply to"`
+	// ParseMode is optional; an empty value preserves the previous behaviour
+	// of sending the text verbatim.
+	ParseMode string `json:"parse_mode,omitempty" jsonschema:"Formatting of 'text'. Empty sends it verbatim; \"markdown\" interprets **bold**, __italic__, ~~strike~~, ||spoiler||, code, pre and [text](url)."`
 }
 
 func registerSend(server *mcp.Server, deps *Deps) {
@@ -75,12 +78,22 @@ func handleSend(ctx context.Context, deps *Deps, input sendInput) *mcp.CallToolR
 	}
 
 	// Send text message.
-	_, err = deps.API.MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
+	message, entities, err := renderText(input.Text, input.ParseMode)
+	if err != nil {
+		return toolError(err.Error())
+	}
+
+	sendReq := &tg.MessagesSendMessageRequest{
 		Peer:     peer.InputPeer(),
-		Message:  input.Text,
+		Message:  message,
 		RandomID: rand.Int64(),
 		ReplyTo:  replyTo,
-	})
+	}
+	if len(entities) > 0 {
+		sendReq.SetEntities(entities)
+	}
+
+	_, err = deps.API.MessagesSendMessage(ctx, sendReq)
 	if err != nil {
 		return toolError(fmt.Sprintf("failed to send message: %v", err))
 	}
@@ -131,14 +144,23 @@ func sendFile(ctx context.Context, deps *Deps, peer Peer, input sendInput, reply
 		}
 	}
 
-	caption := input.Text
-	_, err = deps.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	caption, captionEntities, err := renderText(input.Text, input.ParseMode)
+	if err != nil {
+		return toolError(err.Error()), nil, nil
+	}
+
+	mediaReq := &tg.MessagesSendMediaRequest{
 		Peer:     peer.InputPeer(),
 		Media:    media,
 		Message:  caption,
 		RandomID: rand.Int64(),
 		ReplyTo:  replyTo,
-	})
+	}
+	if len(captionEntities) > 0 {
+		mediaReq.SetEntities(captionEntities)
+	}
+
+	_, err = deps.API.MessagesSendMedia(ctx, mediaReq)
 	if err != nil {
 		return toolError(fmt.Sprintf("failed to send file: %v", err)), nil, nil
 	}

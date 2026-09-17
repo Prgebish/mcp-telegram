@@ -30,13 +30,14 @@ Built with [gotd/td](https://github.com/gotd/td) and the official [MCP Go SDK](h
 | `tg_dialogs` | Lists dialogs visible to the ACL whitelist | — |
 | `tg_history` | Fetches message history with pagination, date filtering, and media download | `read` |
 | `tg_search` | Searches messages in a chat by text query, with optional sender filter | `read` |
-| `tg_send` | Sends a text message or file, with optional reply-to | `send` |
+| `tg_send` | Sends a text message or file, with optional reply-to and Markdown formatting | `send` |
 | `tg_forward` | Forwards messages from one chat to another | `read` + `send` |
-| `tg_draft` | Saves a draft message (does not send) | `draft` |
+| `tg_draft` | Saves a draft message with optional Markdown formatting (does not send) | `draft` |
 | `tg_mark_read` | Marks a chat as read | `mark_read` |
 
 **Additional capabilities:**
 
+- Markdown formatting via `parse_mode` (bold, italic, strikethrough, spoiler, code, pre, links)
 - File and photo sending
 - Forward messages between chats
 - Reply to specific messages
@@ -45,6 +46,33 @@ Built with [gotd/td](https://github.com/gotd/td) and the official [MCP Go SDK](h
 - Typed peer references (`user:ID`, `chat:ID`, `channel:ID`) to prevent ID collisions
 - Lazy peer resolution — avoids `FLOOD_WAIT` errors at startup
 - Global rate limiting at the RPC level
+
+### Formatting
+
+`tg_send` and `tg_draft` accept an optional `parse_mode`. Leaving it out sends the text
+exactly as given, so existing callers are unaffected.
+
+Set `parse_mode` to `markdown` to convert markup into Telegram message entities:
+
+| Syntax | Result |
+| --- | --- |
+| `**bold**` | bold |
+| `__italic__` | italic |
+| `~~strike~~` | strikethrough |
+| `\|\|spoiler\|\|` | spoiler |
+| `` `code` `` | inline monospace |
+| ```` ```lang
+code
+``` ```` | preformatted block, language optional |
+| `[text](https://example.com)` | inline link |
+
+A backslash escapes the character after it, so `\**` is a literal `**`. Unterminated
+markers are left as literal text rather than rejected.
+
+Entity offsets are counted in UTF-16 code units, as Telegram requires, so emoji and other
+characters outside the Basic Multilingual Plane do not shift the formatting that follows
+them.
+
 
 ## What you can do with it
 
