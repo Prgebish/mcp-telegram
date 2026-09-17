@@ -12,6 +12,9 @@ import (
 type draftInput struct {
 	Chat string `json:"chat" jsonschema:"required,Chat reference: @username, user:ID, chat:ID, or channel:ID"`
 	Text string `json:"text" jsonschema:"required,Draft message text"`
+	// ParseMode is optional; an empty value preserves the previous behaviour
+	// of sending the text verbatim.
+	ParseMode string `json:"parse_mode,omitempty" jsonschema:"Formatting of 'text'. Empty sends it verbatim; \"markdown\" interprets **bold**, __italic__, ~~strike~~, ||spoiler||, code, pre and [text](url)."`
 }
 
 func registerDraft(server *mcp.Server, deps *Deps) {
@@ -38,10 +41,20 @@ func handleDraft(ctx context.Context, deps *Deps, input draftInput) *mcp.CallToo
 		return toolError(fmt.Sprintf("access denied: %s does not have 'draft' permission", input.Chat))
 	}
 
-	_, err = deps.API.MessagesSaveDraft(ctx, &tg.MessagesSaveDraftRequest{
+	message, entities, err := renderText(input.Text, input.ParseMode)
+	if err != nil {
+		return toolError(err.Error())
+	}
+
+	req := &tg.MessagesSaveDraftRequest{
 		Peer:    peer.InputPeer(),
-		Message: input.Text,
-	})
+		Message: message,
+	}
+	if len(entities) > 0 {
+		req.SetEntities(entities)
+	}
+
+	_, err = deps.API.MessagesSaveDraft(ctx, req)
 	if err != nil {
 		return toolError(fmt.Sprintf("failed to save draft: %v", err))
 	}
