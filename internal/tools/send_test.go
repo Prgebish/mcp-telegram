@@ -24,7 +24,7 @@ func TestHandleSend_EmptyInput(t *testing.T) {
 
 func TestHandleSend_ResolveError(t *testing.T) {
 	deps := newTestDeps(newErrorResolver("peer not found"), nil, config.PermSend)
-	result := handleSend(context.Background(), deps, sendInput{Chat: "@unknown", Text: "hi"})
+	result := handleSend(context.Background(), deps, sendInput{Chat: "@testchat", Text: "hi"})
 	if !result.IsError {
 		t.Fatal("expected error")
 	}

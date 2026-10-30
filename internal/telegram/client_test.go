@@ -45,4 +45,3 @@ func TestExtractEntities_Other(t *testing.T) {
 		t.Error("expected nil for non-container update type")
 	}
 }
-

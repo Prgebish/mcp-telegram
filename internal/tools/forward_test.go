@@ -38,10 +38,40 @@ func TestHandleForward_InvalidMessageIDs(t *testing.T) {
 	}
 }
 
+func TestHandleForward_DeniesBeforeResolve(t *testing.T) {
+	resolver := &dynamicMockResolver{
+		fn: func(_ context.Context, ref string) (Peer, acl.PeerIdentity, error) {
+			t.Fatalf("resolver called for %q: chats outside the ACL must be denied before any lookup", ref)
+			return nil, acl.PeerIdentity{}, nil
+		},
+	}
+	deps := newTestDeps(resolver, nil)
+	deps.ACL = newTestChecker("user:100", config.PermRead, config.PermSend)
+
+	tests := []struct {
+		name     string
+		from, to string
+		want     string
+	}{
+		{"unknown from_chat", "user:999", "user:100", "access denied: user:999 does not have 'read' permission"},
+		{"unknown to_chat", "user:100", "channel:100", "access denied: channel:100 does not have 'send' permission"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := handleForward(context.Background(), deps, forwardInput{
+				FromChat: tt.from, ToChat: tt.to, MessageIDs: "123",
+			})
+			if !result.IsError || resultText(result) != tt.want {
+				t.Errorf("result = %q, want error %q", resultText(result), tt.want)
+			}
+		})
+	}
+}
+
 func TestHandleForward_FromResolveError(t *testing.T) {
 	deps := newTestDeps(newErrorResolver("peer not found"), nil, config.PermRead, config.PermSend)
 	result := handleForward(context.Background(), deps, forwardInput{
-		FromChat: "@unknown", ToChat: "@testchat", MessageIDs: "123",
+		FromChat: "@testchat", ToChat: "@testchat", MessageIDs: "123",
 	})
 	if !result.IsError {
 		t.Fatal("expected error")
@@ -77,7 +107,7 @@ func TestHandleForward_ToResolveError(t *testing.T) {
 	}
 	deps := newTestDeps(resolver, nil, config.PermRead, config.PermSend)
 	result := handleForward(context.Background(), deps, forwardInput{
-		FromChat: "@testchat", ToChat: "@unknown", MessageIDs: "123",
+		FromChat: "@testchat", ToChat: "@testchat", MessageIDs: "123",
 	})
 	if !result.IsError {
 		t.Fatal("expected error")

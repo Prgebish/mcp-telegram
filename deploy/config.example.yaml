@@ -1,0 +1,30 @@
+# Template for /opt/mcp-telegram/etc/config.yaml (root-owned, 0644).
+# install-macos.sh installs deploy/config.yaml if it exists (it is git-ignored:
+# keep your real ACL there), otherwise this file.
+# Credentials come from secrets.env via the run wrapper, never from this file.
+telegram:
+  app_id: ${TG_APP_ID}
+  api_hash: ${TG_API_HASH}
+  session_path: /opt/mcp-telegram/state/session.json
+
+acl:
+  chats:
+    # Placeholder: user ID 0 matches no chat. List your chats with
+    #   sudo -u _mcptg /opt/mcp-telegram/bin/run dialogs
+    # and replace it with real entries, e.g. your Saved Messages (user:<your ID>).
+    - match: "user:0"
+      permissions: [read]
+
+limits:
+  max_messages_per_request: 50
+  max_dialogs_per_request: 100
+  rate:
+    requests_per_second: 2.0
+    burst: 3
+
+transcribe:
+  enabled: false
+  timeout_seconds: 30
+
+logging:
+  level: info

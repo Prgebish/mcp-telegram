@@ -1,9 +1,15 @@
 package tools
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/Prgebish/mcp-telegram/internal/acl"
+	"github.com/Prgebish/mcp-telegram/internal/config"
+	"github.com/gotd/td/tg"
 )
 
 func TestToolError(t *testing.T) {
@@ -85,5 +91,48 @@ func TestPtrBool(t *testing.T) {
 	v = ptrBool(false)
 	if v == nil || *v != false {
 		t.Error("ptrBool(false) should return pointer to false")
+	}
+}
+
+func TestResolveAllowed_DeniesBeforeResolve(t *testing.T) {
+	resolver := &dynamicMockResolver{
+		fn: func(_ context.Context, ref string) (Peer, acl.PeerIdentity, error) {
+			t.Fatalf("resolver called for %q: chats outside the ACL must be denied before any lookup", ref)
+			return nil, acl.PeerIdentity{}, nil
+		},
+	}
+	deps := newTestDeps(resolver, nil)
+	deps.ACL = newTestChecker("user:100", config.PermRead)
+
+	for _, ref := range []string{"user:999", "chat:100", "channel:100"} {
+		_, _, denied := resolveAllowed(context.Background(), deps, ref, config.PermRead)
+		if denied == nil || !strings.Contains(resultText(denied), "access denied") {
+			t.Errorf("ref %q: expected access denied, got %v", ref, denied)
+		}
+	}
+	_, _, denied := resolveAllowed(context.Background(), deps, "user:100", config.PermSend)
+	if denied == nil || !strings.Contains(resultText(denied), "'send' permission") {
+		t.Errorf("expected send denied, got %v", denied)
+	}
+}
+
+func TestResolveAllowed_ChecksResolvedIdentity(t *testing.T) {
+	// @username refs cannot be decided by the string alone, so they are
+	// resolved and then checked against the resolved identity.
+	resolver := &mockResolver{
+		peer:     &mockPeer{inputPeer: &tg.InputPeerUser{UserID: 555}},
+		identity: acl.PeerIdentity{Kind: acl.KindUser, ID: 555, Username: "stranger"},
+	}
+	deps := newTestDeps(resolver, nil)
+	deps.ACL = newTestChecker("user:100", config.PermRead)
+
+	_, _, denied := resolveAllowed(context.Background(), deps, "@stranger", config.PermRead)
+	if denied == nil || !strings.Contains(resultText(denied), "access denied") {
+		t.Errorf("expected access denied after resolution, got %v", denied)
+	}
+
+	resolver.identity.ID = 100
+	if _, _, denied := resolveAllowed(context.Background(), deps, "@stranger", config.PermRead); denied != nil {
+		t.Errorf("expected allowed, got %s", resultText(denied))
 	}
 }

@@ -29,16 +29,12 @@ func registerDraft(server *mcp.Server, deps *Deps) {
 }
 
 func handleDraft(ctx context.Context, deps *Deps, input draftInput) *mcp.CallToolResult {
-	peer, identity, err := deps.Resolver.ResolvePeerForTool(ctx, input.Chat)
-	if err != nil {
-		return toolError(fmt.Sprintf("cannot resolve chat: %v", err))
+	peer, _, denied := resolveAllowed(ctx, deps, input.Chat, config.PermDraft)
+	if denied != nil {
+		return denied
 	}
 
-	if !deps.ACL.Allowed(identity, config.PermDraft) {
-		return toolError(fmt.Sprintf("access denied: %s does not have 'draft' permission", input.Chat))
-	}
-
-	_, err = deps.API.MessagesSaveDraft(ctx, &tg.MessagesSaveDraftRequest{
+	_, err := deps.API.MessagesSaveDraft(ctx, &tg.MessagesSaveDraftRequest{
 		Peer:    peer.InputPeer(),
 		Message: input.Text,
 	})

@@ -25,7 +25,7 @@ func TestHandleSearch_EmptyQuery(t *testing.T) {
 
 func TestHandleSearch_ResolveError(t *testing.T) {
 	deps := newTestDeps(newErrorResolver("peer not found"), nil, config.PermRead)
-	result := handleSearch(context.Background(), deps, searchInput{Chat: "@unknown", Query: "test"})
+	result := handleSearch(context.Background(), deps, searchInput{Chat: "@testchat", Query: "test"})
 	if !result.IsError {
 		t.Fatal("expected error")
 	}

@@ -28,15 +28,12 @@ func registerMarkRead(server *mcp.Server, deps *Deps) {
 }
 
 func handleMarkRead(ctx context.Context, deps *Deps, input markReadInput) *mcp.CallToolResult {
-	peer, identity, err := deps.Resolver.ResolvePeerForTool(ctx, input.Chat)
-	if err != nil {
-		return toolError(fmt.Sprintf("cannot resolve chat: %v", err))
+	peer, _, denied := resolveAllowed(ctx, deps, input.Chat, config.PermMarkRead)
+	if denied != nil {
+		return denied
 	}
 
-	if !deps.ACL.Allowed(identity, config.PermMarkRead) {
-		return toolError(fmt.Sprintf("access denied: %s does not have 'mark_read' permission", input.Chat))
-	}
-
+	var err error
 	switch p := peer.(type) {
 	case ChannelPeer:
 		_, err = deps.API.ChannelsReadHistory(ctx, &tg.ChannelsReadHistoryRequest{

@@ -1,4 +1,4 @@
-package tools
+package telegram
 
 import (
 	"testing"
@@ -8,14 +8,18 @@ import (
 	"github.com/gotd/td/tg"
 )
 
-func TestIdentityFromElem_User(t *testing.T) {
+func TestDialogPeer_User(t *testing.T) {
 	users := map[int64]*tg.User{
 		100: {ID: 100, FirstName: "Alice", LastName: "Smith", Username: "alice", Phone: "79001234567"},
 	}
 	entities := peer.NewEntities(users, map[int64]*tg.Chat{}, map[int64]*tg.Channel{})
 	inputPeer := &tg.InputPeerUser{UserID: 100, AccessHash: 999}
 
-	identity, ref, name, peerType := identityFromElem(inputPeer, entities)
+	identity, name, peerType, ok := DialogPeer(inputPeer, entities)
+	ref := identity.Ref()
+	if !ok {
+		t.Fatal("ok = false, want true")
+	}
 
 	if identity.Kind != acl.KindUser {
 		t.Errorf("Kind = %d, want KindUser", identity.Kind)
@@ -40,14 +44,18 @@ func TestIdentityFromElem_User(t *testing.T) {
 	}
 }
 
-func TestIdentityFromElem_UserNoUsername(t *testing.T) {
+func TestDialogPeer_UserNoUsername(t *testing.T) {
 	users := map[int64]*tg.User{
 		200: {ID: 200, FirstName: "Bob"},
 	}
 	entities := peer.NewEntities(users, map[int64]*tg.Chat{}, map[int64]*tg.Channel{})
 	inputPeer := &tg.InputPeerUser{UserID: 200}
 
-	identity, ref, name, _ := identityFromElem(inputPeer, entities)
+	identity, name, _, ok := DialogPeer(inputPeer, entities)
+	ref := identity.Ref()
+	if !ok {
+		t.Fatal("ok = false, want true")
+	}
 
 	if identity.Username != "" {
 		t.Errorf("Username = %q, want empty", identity.Username)
@@ -60,27 +68,34 @@ func TestIdentityFromElem_UserNoUsername(t *testing.T) {
 	}
 }
 
-func TestIdentityFromElem_Bot(t *testing.T) {
+func TestDialogPeer_Bot(t *testing.T) {
 	users := map[int64]*tg.User{
 		300: {ID: 300, FirstName: "BotHelper", Bot: true, Username: "helper_bot"},
 	}
 	entities := peer.NewEntities(users, map[int64]*tg.Chat{}, map[int64]*tg.Channel{})
 	inputPeer := &tg.InputPeerUser{UserID: 300}
 
-	_, _, _, peerType := identityFromElem(inputPeer, entities)
+	_, _, peerType, ok := DialogPeer(inputPeer, entities)
+	if !ok {
+		t.Fatal("ok = false, want true")
+	}
 	if peerType != "bot" {
 		t.Errorf("peerType = %q, want %q", peerType, "bot")
 	}
 }
 
-func TestIdentityFromElem_Chat(t *testing.T) {
+func TestDialogPeer_Chat(t *testing.T) {
 	chats := map[int64]*tg.Chat{
 		400: {ID: 400, Title: "Dev Team"},
 	}
 	entities := peer.NewEntities(map[int64]*tg.User{}, chats, map[int64]*tg.Channel{})
 	inputPeer := &tg.InputPeerChat{ChatID: 400}
 
-	identity, ref, name, peerType := identityFromElem(inputPeer, entities)
+	identity, name, peerType, ok := DialogPeer(inputPeer, entities)
+	ref := identity.Ref()
+	if !ok {
+		t.Fatal("ok = false, want true")
+	}
 
 	if identity.Kind != acl.KindChat {
 		t.Errorf("Kind = %d, want KindChat", identity.Kind)
@@ -99,14 +114,18 @@ func TestIdentityFromElem_Chat(t *testing.T) {
 	}
 }
 
-func TestIdentityFromElem_Channel(t *testing.T) {
+func TestDialogPeer_Channel(t *testing.T) {
 	channels := map[int64]*tg.Channel{
 		500: {ID: 500, Title: "News", Username: "news_channel", Broadcast: true},
 	}
 	entities := peer.NewEntities(map[int64]*tg.User{}, map[int64]*tg.Chat{}, channels)
 	inputPeer := &tg.InputPeerChannel{ChannelID: 500}
 
-	identity, ref, name, peerType := identityFromElem(inputPeer, entities)
+	identity, name, peerType, ok := DialogPeer(inputPeer, entities)
+	ref := identity.Ref()
+	if !ok {
+		t.Fatal("ok = false, want true")
+	}
 
 	if identity.Kind != acl.KindChannel {
 		t.Errorf("Kind = %d, want KindChannel", identity.Kind)
@@ -125,14 +144,18 @@ func TestIdentityFromElem_Channel(t *testing.T) {
 	}
 }
 
-func TestIdentityFromElem_Supergroup(t *testing.T) {
+func TestDialogPeer_Supergroup(t *testing.T) {
 	channels := map[int64]*tg.Channel{
 		600: {ID: 600, Title: "Devs", Broadcast: false},
 	}
 	entities := peer.NewEntities(map[int64]*tg.User{}, map[int64]*tg.Chat{}, channels)
 	inputPeer := &tg.InputPeerChannel{ChannelID: 600}
 
-	_, ref, _, peerType := identityFromElem(inputPeer, entities)
+	identity, _, peerType, ok := DialogPeer(inputPeer, entities)
+	ref := identity.Ref()
+	if !ok {
+		t.Fatal("ok = false, want true")
+	}
 
 	if ref != "channel:600" {
 		t.Errorf("ref = %q, want %q", ref, "channel:600")
@@ -142,11 +165,15 @@ func TestIdentityFromElem_Supergroup(t *testing.T) {
 	}
 }
 
-func TestIdentityFromElem_UserNotInEntities(t *testing.T) {
+func TestDialogPeer_UserNotInEntities(t *testing.T) {
 	entities := peer.NewEntities(map[int64]*tg.User{}, map[int64]*tg.Chat{}, map[int64]*tg.Channel{})
 	inputPeer := &tg.InputPeerUser{UserID: 999}
 
-	identity, ref, name, peerType := identityFromElem(inputPeer, entities)
+	identity, name, peerType, ok := DialogPeer(inputPeer, entities)
+	ref := identity.Ref()
+	if !ok {
+		t.Fatal("ok = false, want true")
+	}
 
 	if identity.Kind != acl.KindUser {
 		t.Errorf("Kind = %d, want KindUser", identity.Kind)
@@ -165,21 +192,58 @@ func TestIdentityFromElem_UserNotInEntities(t *testing.T) {
 	}
 }
 
-func TestIdentityFromElem_Unknown(t *testing.T) {
+func TestDialogPeer_Unknown(t *testing.T) {
 	entities := peer.NewEntities(map[int64]*tg.User{}, map[int64]*tg.Chat{}, map[int64]*tg.Channel{})
 
-	identity, ref, name, peerType := identityFromElem(&tg.InputPeerEmpty{}, entities)
+	if _, _, _, ok := DialogPeer(&tg.InputPeerEmpty{}, entities); ok {
+		t.Error("ok = true, want false for an unknown peer type")
+	}
+}
 
-	if identity.ID != 0 {
-		t.Errorf("ID = %d, want 0", identity.ID)
+func TestDialogPeer_ChatNotInEntities(t *testing.T) {
+	entities := peer.NewEntities(map[int64]*tg.User{}, map[int64]*tg.Chat{}, map[int64]*tg.Channel{})
+	inputPeer := &tg.InputPeerChat{ChatID: 999}
+
+	identity, name, peerType, ok := DialogPeer(inputPeer, entities)
+	ref := identity.Ref()
+	if !ok {
+		t.Fatal("ok = false, want true")
 	}
-	if ref != "unknown" {
-		t.Errorf("ref = %q, want %q", ref, "unknown")
+
+	if identity.Kind != acl.KindChat {
+		t.Errorf("Kind = %d, want KindChat", identity.Kind)
 	}
-	if name != "Unknown" {
-		t.Errorf("name = %q, want %q", name, "Unknown")
+	if ref != "chat:999" {
+		t.Errorf("ref = %q, want %q", ref, "chat:999")
 	}
-	if peerType != "unknown" {
-		t.Errorf("peerType = %q, want %q", peerType, "unknown")
+	if name != "Chat 999" {
+		t.Errorf("name = %q, want %q", name, "Chat 999")
+	}
+	if peerType != "chat" {
+		t.Errorf("peerType = %q, want %q", peerType, "chat")
+	}
+}
+
+func TestDialogPeer_ChannelNotInEntities(t *testing.T) {
+	entities := peer.NewEntities(map[int64]*tg.User{}, map[int64]*tg.Chat{}, map[int64]*tg.Channel{})
+	inputPeer := &tg.InputPeerChannel{ChannelID: 999}
+
+	identity, name, peerType, ok := DialogPeer(inputPeer, entities)
+	ref := identity.Ref()
+	if !ok {
+		t.Fatal("ok = false, want true")
+	}
+
+	if identity.Kind != acl.KindChannel {
+		t.Errorf("Kind = %d, want KindChannel", identity.Kind)
+	}
+	if ref != "channel:999" {
+		t.Errorf("ref = %q, want %q", ref, "channel:999")
+	}
+	if name != "Channel 999" {
+		t.Errorf("name = %q, want %q", name, "Channel 999")
+	}
+	if peerType != "supergroup" {
+		t.Errorf("peerType = %q, want %q", peerType, "supergroup")
 	}
 }

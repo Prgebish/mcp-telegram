@@ -12,7 +12,7 @@ import (
 
 func TestHandleDraft_ResolveError(t *testing.T) {
 	deps := newTestDeps(newErrorResolver("peer not found"), nil, config.PermDraft)
-	result := handleDraft(context.Background(), deps, draftInput{Chat: "@unknown", Text: "hi"})
+	result := handleDraft(context.Background(), deps, draftInput{Chat: "@testchat", Text: "hi"})
 	if !result.IsError {
 		t.Fatal("expected error")
 	}

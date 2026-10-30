@@ -1,0 +1,31 @@
+#!/bin/sh
+# Launches mcp-telegram with credentials from secrets.env.
+# Installed root-owned as /opt/mcp-telegram/bin/run and started as _mcptg:
+#   sudo -n -u _mcptg /opt/mcp-telegram/bin/run serve   (MCP client, via sudoers)
+#   sudo -u _mcptg /opt/mcp-telegram/bin/run auth       (interactive, by the user)
+#   sudo -u _mcptg /opt/mcp-telegram/bin/run dialogs    (interactive, by the user)
+set -eu
+
+PREFIX=/opt/mcp-telegram
+
+case "${1:-}" in
+	serve | auth | dialogs) ;;
+	*)
+		echo "usage: run serve|auth|dialogs" >&2
+		exit 2
+		;;
+esac
+
+if [ "$(id -un)" != "_mcptg" ]; then
+	echo "run must be started as _mcptg (sudo -u _mcptg $0 $1)" >&2
+	exit 1
+fi
+
+umask 077
+cd "$PREFIX/state"
+
+set -a
+. "$PREFIX/etc/secrets.env"
+set +a
+
+exec "$PREFIX/bin/mcp-telegram" "$1" --config "$PREFIX/etc/config.yaml"

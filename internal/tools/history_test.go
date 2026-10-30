@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Prgebish/mcp-telegram/internal/acl"
 	"github.com/Prgebish/mcp-telegram/internal/config"
 	"github.com/gotd/td/telegram/downloader"
 	"github.com/gotd/td/telegram/message/peer"
@@ -421,45 +420,5 @@ func TestMediaConfig_ShouldDownload(t *testing.T) {
 	}
 	if cfg.ShouldDownload("") {
 		t.Error("expected empty string NOT to be downloadable")
-	}
-}
-
-func TestIdentityFromElem_ChatNotInEntities(t *testing.T) {
-	entities := peer.NewEntities(map[int64]*tg.User{}, map[int64]*tg.Chat{}, map[int64]*tg.Channel{})
-	inputPeer := &tg.InputPeerChat{ChatID: 999}
-
-	identity, ref, name, peerType := identityFromElem(inputPeer, entities)
-
-	if identity.Kind != acl.KindChat {
-		t.Errorf("Kind = %d, want KindChat", identity.Kind)
-	}
-	if ref != "chat:999" {
-		t.Errorf("ref = %q, want %q", ref, "chat:999")
-	}
-	if name != "Chat 999" {
-		t.Errorf("name = %q, want %q", name, "Chat 999")
-	}
-	if peerType != "chat" {
-		t.Errorf("peerType = %q, want %q", peerType, "chat")
-	}
-}
-
-func TestIdentityFromElem_ChannelNotInEntities(t *testing.T) {
-	entities := peer.NewEntities(map[int64]*tg.User{}, map[int64]*tg.Chat{}, map[int64]*tg.Channel{})
-	inputPeer := &tg.InputPeerChannel{ChannelID: 999}
-
-	identity, ref, name, peerType := identityFromElem(inputPeer, entities)
-
-	if identity.Kind != acl.KindChannel {
-		t.Errorf("Kind = %d, want KindChannel", identity.Kind)
-	}
-	if ref != "channel:999" {
-		t.Errorf("ref = %q, want %q", ref, "channel:999")
-	}
-	if name != "Channel 999" {
-		t.Errorf("name = %q, want %q", name, "Channel 999")
-	}
-	if peerType != "supergroup" {
-		t.Errorf("peerType = %q, want %q", peerType, "supergroup")
 	}
 }

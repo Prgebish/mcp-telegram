@@ -41,22 +41,18 @@ func handleForward(ctx context.Context, deps *Deps, input forwardInput) *mcp.Cal
 		return toolError(fmt.Sprintf("too many messages: %d (max %d)", len(ids), deps.Limits.MaxMessagesPerRequest))
 	}
 
-	// Resolve and check source chat.
-	fromPeer, fromIdentity, err := deps.Resolver.ResolvePeerForTool(ctx, input.FromChat)
-	if err != nil {
-		return toolError(fmt.Sprintf("cannot resolve from_chat: %v", err))
+	// Deny a destination that no ACL rule can match before resolving the
+	// source, so nothing reaches Telegram for chats outside the ACL.
+	if !deps.ACL.MayAllow(input.ToChat, config.PermSend) {
+		return accessDenied(input.ToChat, config.PermSend)
 	}
-	if !deps.ACL.Allowed(fromIdentity, config.PermRead) {
-		return toolError(fmt.Sprintf("access denied: %s does not have 'read' permission", input.FromChat))
+	fromPeer, _, denied := resolveAllowedAs(ctx, deps, "from_chat", input.FromChat, config.PermRead)
+	if denied != nil {
+		return denied
 	}
-
-	// Resolve and check destination chat.
-	toPeer, toIdentity, err := deps.Resolver.ResolvePeerForTool(ctx, input.ToChat)
-	if err != nil {
-		return toolError(fmt.Sprintf("cannot resolve to_chat: %v", err))
-	}
-	if !deps.ACL.Allowed(toIdentity, config.PermSend) {
-		return toolError(fmt.Sprintf("access denied: %s does not have 'send' permission", input.ToChat))
+	toPeer, _, denied := resolveAllowedAs(ctx, deps, "to_chat", input.ToChat, config.PermSend)
+	if denied != nil {
+		return denied
 	}
 
 	// Generate random IDs for each message.

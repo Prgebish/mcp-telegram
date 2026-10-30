@@ -39,13 +39,9 @@ func handleSearch(ctx context.Context, deps *Deps, input searchInput) *mcp.CallT
 		return toolError("query is required")
 	}
 
-	chatPeer, identity, err := deps.Resolver.ResolvePeerForTool(ctx, input.Chat)
-	if err != nil {
-		return toolError(fmt.Sprintf("cannot resolve chat: %v", err))
-	}
-
-	if !deps.ACL.Allowed(identity, config.PermRead) {
-		return toolError(fmt.Sprintf("access denied: %s does not have 'read' permission", input.Chat))
+	chatPeer, _, denied := resolveAllowed(ctx, deps, input.Chat, config.PermRead)
+	if denied != nil {
+		return denied
 	}
 
 	limit := input.Limit

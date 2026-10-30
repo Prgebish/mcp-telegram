@@ -70,6 +70,7 @@ func (c *Client) Start(ctx context.Context) error {
 	opts := telegram.Options{
 		SessionStorage: storage,
 		UpdateHandler:  updateHandler,
+		Device:         Device(),
 	}
 	if c.limiter != nil {
 		opts.Middlewares = []telegram.Middleware{c.limiter.Middleware()}
@@ -163,4 +164,3 @@ func extractEntities(u tg.UpdatesClass) ([]tg.UserClass, []tg.ChatClass) {
 		return nil, nil
 	}
 }
-

@@ -216,3 +216,117 @@ func mustNewChecker(t *testing.T, chats []config.ChatRule) *Checker {
 	}
 	return c
 }
+
+func TestMayAllow(t *testing.T) {
+	read := []config.Permission{config.PermRead}
+
+	idOnly := mustNewChecker(t, []config.ChatRule{
+		{Match: "user:100", Permissions: []config.Permission{config.PermRead, config.PermSend}},
+		{Match: "channel:300", Permissions: read},
+	})
+	withUsername := mustNewChecker(t, []config.ChatRule{
+		{Match: "user:100", Permissions: read},
+		{Match: "@alice", Permissions: read},
+	})
+	withPhone := mustNewChecker(t, []config.ChatRule{
+		{Match: "+7 900 123-45-67", Permissions: read},
+	})
+
+	tests := []struct {
+		name    string
+		checker *Checker
+		ref     string
+		perm    config.Permission
+		want    bool
+	}{
+		{"typed ref in ACL", idOnly, "user:100", config.PermRead, true},
+		{"typed ref without perm", idOnly, "channel:300", config.PermSend, false},
+		{"typed ref outside ACL", idOnly, "user:999", config.PermRead, false},
+		{"same ID, other kind", idOnly, "chat:100", config.PermRead, false},
+		{"channel in ACL", idOnly, "channel:300", config.PermRead, true},
+		{"username needs resolution against ID rules", idOnly, "@bob", config.PermRead, true},
+		{"username needs resolution, perm nowhere", idOnly, "@bob", config.PermDraft, false},
+		{"typed ref may match username rule", withUsername, "user:999", config.PermRead, true},
+		{"username rule match", withUsername, "@ALICE", config.PermRead, true},
+		{"phone rule match", withPhone, "+79001234567", config.PermRead, true},
+		{"phone rule mismatch", withPhone, "+79990000000", config.PermRead, false},
+		{"typed ref vs phone-only ACL", withPhone, "user:1", config.PermRead, true},
+		{"unparseable ref left to resolver", idOnly, "user:abc", config.PermRead, true},
+		{"username with spaces", withUsername, " @alice ", config.PermRead, true},
+		{"secondary username decided after resolution", withUsername, "@alt", config.PermRead, true},
+		{"phone with extra plus", withPhone, "+7+900 123-45-67", config.PermRead, true},
+		{"deeplink after @ left to resolver", withUsername, "@https://t.me/alice", config.PermRead, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.checker.MayAllow(tt.ref, tt.perm); got != tt.want {
+				t.Errorf("MayAllow(%q, %s) = %v, want %v", tt.ref, tt.perm, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseRef(t *testing.T) {
+	tests := []struct {
+		in      string
+		want    string
+		wantErr bool
+	}{
+		{"@Alice", "@alice", false},
+		{"  @alice\t", "@alice", false},
+		{"@alice_bot2", "@alice_bot2", false},
+		{"+7 (900) 123-45-67", "+79001234567", false},
+		{"+7+900 123", "+7900123", false},
+		{"user:100", "user:100", false},
+		{"chat:200", "chat:200", false},
+		{"channel:300", "channel:300", false},
+		{"@", "", true},
+		{"@ alice", "", true},
+		{"@https://t.me/alice", "", true},
+		{"@+79001234567", "", true},
+		{"+", "", true},
+		{"+abc", "", true},
+		{"user:abc", "", true},
+		{"alice", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			got, err := ParseRef(tt.in)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("ParseRef(%q) = %v, want error", tt.in, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseRef(%q): %v", tt.in, err)
+			}
+			if got.String() != tt.want {
+				t.Errorf("ParseRef(%q) = %q, want %q", tt.in, got.String(), tt.want)
+			}
+		})
+	}
+}
+
+func TestPeerIdentityRef(t *testing.T) {
+	tests := []struct {
+		identity PeerIdentity
+		typed    string
+		ref      string
+	}{
+		{PeerIdentity{Kind: KindUser, ID: 1, Username: "alice"}, "user:1", "@alice"},
+		{PeerIdentity{Kind: KindUser, ID: 1}, "user:1", "user:1"},
+		{PeerIdentity{Kind: KindChat, ID: 2}, "chat:2", "chat:2"},
+		{PeerIdentity{Kind: KindChannel, ID: 3, Username: "news"}, "channel:3", "@news"},
+		{PeerIdentity{}, "", ""},
+	}
+	for _, tt := range tests {
+		if got := tt.identity.TypedRef(); got != tt.typed {
+			t.Errorf("%+v.TypedRef() = %q, want %q", tt.identity, got, tt.typed)
+		}
+		if got := tt.identity.Ref(); got != tt.ref {
+			t.Errorf("%+v.Ref() = %q, want %q", tt.identity, got, tt.ref)
+		}
+	}
+}

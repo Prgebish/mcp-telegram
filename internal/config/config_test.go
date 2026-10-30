@@ -260,3 +260,54 @@ logging:
 		t.Error("expected error for invalid log level")
 	}
 }
+
+func TestLoad_Transcribe(t *testing.T) {
+	base := `
+telegram:
+  app_id: 1
+  api_hash: x
+acl:
+  chats:
+    - match: "user:1"
+      permissions: [read]
+`
+	tests := []struct {
+		name        string
+		extra       string
+		wantEnabled bool
+		wantTimeout int
+		wantErr     bool
+	}{
+		{"defaults", "", false, 30, false},
+		{"enabled with timeout", "transcribe:\n  enabled: true\n  timeout_seconds: 45\n", true, 45, false},
+		{"enabled default timeout", "transcribe:\n  enabled: true\n", true, 30, false},
+		{"zero timeout uses default", "transcribe:\n  timeout_seconds: 0\n", false, 30, false},
+		{"negative timeout", "transcribe:\n  timeout_seconds: -1\n", false, 0, true},
+		{"too long timeout", "transcribe:\n  timeout_seconds: 301\n", false, 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.yaml")
+			if err := os.WriteFile(path, []byte(base+tt.extra), 0600); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := Load(path)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if cfg.Transcribe.Enabled != tt.wantEnabled {
+				t.Errorf("enabled = %v, want %v", cfg.Transcribe.Enabled, tt.wantEnabled)
+			}
+			if cfg.Transcribe.TimeoutSeconds != tt.wantTimeout {
+				t.Errorf("timeout_seconds = %d, want %d", cfg.Transcribe.TimeoutSeconds, tt.wantTimeout)
+			}
+		})
+	}
+}

@@ -34,6 +34,7 @@ Built with [gotd/td](https://github.com/gotd/td) and the official [MCP Go SDK](h
 | `tg_forward` | Forwards messages from one chat to another | `read` + `send` |
 | `tg_draft` | Saves a draft message (does not send) | `draft` |
 | `tg_mark_read` | Marks a chat as read | `mark_read` |
+| `tg_transcribe` | Transcribes a voice message or round video with Telegram's native transcription (Premium; opt-in, see [Transcription](#transcription)) | `read` |
 
 **Additional capabilities:**
 
@@ -131,7 +132,12 @@ This produces `mcp-telegram` (or `mcp-telegram.exe` on Windows) in the current d
 
 ### Authenticate
 
-Run the auth command once to create a session file. You will be prompted for your phone number, the login code, and (if enabled) your 2FA password.
+Run the auth command once to create a session file. It asks how you want to log in:
+
+1. **QR code** (default) — scan the code from a Telegram app where you are already logged in: Settings → Devices → Link Desktop Device. No login code is needed.
+2. **Phone number** — enter the login code sent by Telegram. If it does not arrive, type `resend` to get it via SMS or a call, or `qr` to switch to the QR code.
+
+If your account has 2FA enabled, you will also be asked for the password.
 
 **macOS / Linux:**
 
@@ -191,6 +197,16 @@ logging:
 ```
 
 Environment variables in `${...}` syntax are expanded at load time.
+
+To find the references for `acl.chats`, list all your dialogs (this ignores the ACL and needs only the `telegram` section and a session):
+
+```bash
+mcp-telegram dialogs --config config.yaml
+```
+
+It prints the type, typed reference (`user:ID`, `chat:ID`, `channel:ID`) and title of each dialog, plus your own ID for Saved Messages.
+
+**macOS, isolated service user (optional):** `deploy/install-macos.sh` installs the server under a dedicated `_mcptg` user, so the MCP client cannot read the session file. See the comments at the top of the script; the ACL template is `deploy/config.example.yaml`.
 
 ### Client configuration
 
@@ -262,6 +278,16 @@ The `limits.rate` section configures a global token bucket that wraps all Telegr
 
 - `requests_per_second` — sustained rate (default: 2.0)
 - `burst` — maximum burst size (default: 3)
+
+### Transcription
+
+```yaml
+transcribe:
+  enabled: true
+  timeout_seconds: 30   # 1–300; 0 or unset = 30
+```
+
+`tg_transcribe` is registered only when `enabled` is true. It uses Telegram's server-side transcription, which requires Premium (or the free trial quota) and spends that quota. While Telegram reports the transcription as pending, the tool polls until `timeout_seconds`; if it is still pending then, it returns `status: "pending"` with the partial text — call it again later.
 
 ### Media download
 

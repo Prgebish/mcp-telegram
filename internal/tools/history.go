@@ -49,16 +49,13 @@ func registerHistory(server *mcp.Server, deps *Deps) {
 			DestructiveHint: ptrBool(false),
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input historyInput) (*mcp.CallToolResult, any, error) {
-		peer, identity, err := deps.Resolver.ResolvePeerForTool(ctx, input.Chat)
-		if err != nil {
-			return toolError(fmt.Sprintf("cannot resolve chat: %v", err)), nil, nil
-		}
-
-		if !deps.ACL.Allowed(identity, config.PermRead) {
-			return toolError(fmt.Sprintf("access denied: %s does not have 'read' permission", input.Chat)), nil, nil
+		peer, _, denied := resolveAllowed(ctx, deps, input.Chat, config.PermRead)
+		if denied != nil {
+			return denied, nil, nil
 		}
 
 		// Parse date filters.
+		var err error
 		var sinceTime, untilTime time.Time
 		if input.Since != "" {
 			sinceTime, err = parseDate(input.Since)

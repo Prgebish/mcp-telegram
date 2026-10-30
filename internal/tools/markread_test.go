@@ -12,7 +12,7 @@ import (
 
 func TestHandleMarkRead_ResolveError(t *testing.T) {
 	deps := newTestDeps(newErrorResolver("peer not found"), nil, config.PermMarkRead)
-	result := handleMarkRead(context.Background(), deps, markReadInput{Chat: "@unknown"})
+	result := handleMarkRead(context.Background(), deps, markReadInput{Chat: "@testchat"})
 	if !result.IsError {
 		t.Fatal("expected error")
 	}

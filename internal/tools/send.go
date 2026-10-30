@@ -49,15 +49,12 @@ func handleSend(ctx context.Context, deps *Deps, input sendInput) *mcp.CallToolR
 		}
 	}
 
-	peer, identity, err := deps.Resolver.ResolvePeerForTool(ctx, input.Chat)
-	if err != nil {
-		return toolError(fmt.Sprintf("cannot resolve chat: %v", err))
+	peer, _, denied := resolveAllowed(ctx, deps, input.Chat, config.PermSend)
+	if denied != nil {
+		return denied
 	}
 
-	if !deps.ACL.Allowed(identity, config.PermSend) {
-		return toolError(fmt.Sprintf("access denied: %s does not have 'send' permission", input.Chat))
-	}
-
+	var err error
 	var replyTo tg.InputReplyToClass
 	var replyToID int
 	if input.ReplyTo != "" {

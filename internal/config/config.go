@@ -9,11 +9,12 @@ import (
 )
 
 type Config struct {
-	Telegram TelegramConfig `yaml:"telegram"`
-	ACL      ACLConfig      `yaml:"acl"`
-	Limits   LimitsConfig   `yaml:"limits"`
-	Media    MediaConfig    `yaml:"media"`
-	Logging  LoggingConfig  `yaml:"logging"`
+	Telegram   TelegramConfig   `yaml:"telegram"`
+	ACL        ACLConfig        `yaml:"acl"`
+	Limits     LimitsConfig     `yaml:"limits"`
+	Media      MediaConfig      `yaml:"media"`
+	Transcribe TranscribeConfig `yaml:"transcribe"`
+	Logging    LoggingConfig    `yaml:"logging"`
 }
 
 type TelegramConfig struct {
@@ -64,6 +65,13 @@ func (m *MediaConfig) ShouldDownload(mediaType string) bool {
 		}
 	}
 	return false
+}
+
+// TranscribeConfig controls tg_transcribe (Telegram's native voice
+// transcription). The tool is not registered unless Enabled is true.
+type TranscribeConfig struct {
+	Enabled        bool `yaml:"enabled"`
+	TimeoutSeconds int  `yaml:"timeout_seconds"` // how long to wait for a pending transcription
 }
 
 type LoggingConfig struct {
@@ -125,6 +133,15 @@ func Load(path string) (*Config, error) {
 	return &cfg, nil
 }
 
+// Default rate limit for Telegram API calls.
+const (
+	DefaultRequestsPerSecond = 2.0
+	DefaultBurst             = 3
+)
+
+// DefaultTranscribeTimeout is used when transcribe.timeout_seconds is unset or 0.
+const DefaultTranscribeTimeout = 30
+
 func applyDefaults(cfg *Config) {
 	if cfg.Telegram.SessionPath == "" {
 		home, _ := os.UserHomeDir()
@@ -139,10 +156,13 @@ func applyDefaults(cfg *Config) {
 		cfg.Limits.MaxDialogsPerRequest = 100
 	}
 	if cfg.Limits.Rate.RequestsPerSecond == 0 {
-		cfg.Limits.Rate.RequestsPerSecond = 2.0
+		cfg.Limits.Rate.RequestsPerSecond = DefaultRequestsPerSecond
 	}
 	if cfg.Limits.Rate.Burst == 0 {
-		cfg.Limits.Rate.Burst = 3
+		cfg.Limits.Rate.Burst = DefaultBurst
+	}
+	if cfg.Transcribe.TimeoutSeconds == 0 {
+		cfg.Transcribe.TimeoutSeconds = DefaultTranscribeTimeout
 	}
 	if cfg.Logging.Level == "" {
 		cfg.Logging.Level = "info"
@@ -209,6 +229,9 @@ func validate(cfg *Config) error {
 	}
 	if cfg.Limits.Rate.Burst <= 0 {
 		return fmt.Errorf("limits.rate.burst must be positive")
+	}
+	if cfg.Transcribe.TimeoutSeconds < 0 || cfg.Transcribe.TimeoutSeconds > 300 {
+		return fmt.Errorf("transcribe.timeout_seconds must be between 1 and 300, or 0 for the default %d", DefaultTranscribeTimeout)
 	}
 	validMediaTypes := map[string]bool{
 		"photo": true, "document": true, "video": true, "voice": true, "audio": true,

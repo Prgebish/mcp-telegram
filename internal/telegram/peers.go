@@ -3,79 +3,53 @@ package telegram
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/Prgebish/mcp-telegram/internal/acl"
 	"github.com/gotd/td/telegram/peers"
 )
 
+// ResolvePeerForTool resolves a chat reference parsed by acl.ParseRef, the
+// same grammar the ACL uses, so a reference is read the same way here and in
+// the ACL pre-check.
 func (c *Client) ResolvePeerForTool(ctx context.Context, ref string) (peers.Peer, acl.PeerIdentity, error) {
+	r, err := acl.ParseRef(ref)
+	if err != nil {
+		return nil, acl.PeerIdentity{}, err
+	}
 	pm := c.Peers()
 
+	var peer peers.Peer
 	switch {
-	case strings.HasPrefix(ref, "@"):
-		domain := ref[1:]
-		peer, err := pm.Resolve(ctx, domain)
-		if err != nil {
-			return nil, acl.PeerIdentity{}, fmt.Errorf("resolve @%s: %w", domain, err)
-		}
-		identity := PeerToIdentity(peer)
-		return peer, identity, nil
-
-	case strings.HasPrefix(ref, "+"):
-		peer, err := pm.ResolvePhone(ctx, ref)
-		if err != nil {
-			return nil, acl.PeerIdentity{}, fmt.Errorf("resolve phone %s: %w", ref, err)
-		}
-		identity := PeerToIdentity(peer)
-		// Don't overwrite Phone from Raw() — it's already set by
-		// PeerToIdentity and is the canonical form from Telegram.
-		// If Raw() didn't have a phone, set it from the ref.
-		if identity.Phone == "" {
-			identity.Phone = ref
-		}
-		return peer, identity, nil
-
-	case strings.HasPrefix(ref, "user:"):
-		id, err := strconv.ParseInt(ref[5:], 10, 64)
-		if err != nil {
-			return nil, acl.PeerIdentity{}, fmt.Errorf("invalid user ID in %q: %w", ref, err)
-		}
-		peer, err := pm.ResolveUserID(ctx, id)
-		if err != nil {
-			return nil, acl.PeerIdentity{}, fmt.Errorf("resolve user:%d: %w", id, err)
-		}
-		identity := PeerToIdentity(peer)
-		return peer, identity, nil
-
-	case strings.HasPrefix(ref, "chat:"):
-		id, err := strconv.ParseInt(ref[5:], 10, 64)
-		if err != nil {
-			return nil, acl.PeerIdentity{}, fmt.Errorf("invalid chat ID in %q: %w", ref, err)
-		}
-		peer, err := pm.ResolveChatID(ctx, id)
-		if err != nil {
-			return nil, acl.PeerIdentity{}, fmt.Errorf("resolve chat:%d: %w", id, err)
-		}
-		identity := PeerToIdentity(peer)
-		return peer, identity, nil
-
-	case strings.HasPrefix(ref, "channel:"):
-		id, err := strconv.ParseInt(ref[8:], 10, 64)
-		if err != nil {
-			return nil, acl.PeerIdentity{}, fmt.Errorf("invalid channel ID in %q: %w", ref, err)
-		}
-		peer, err := pm.ResolveChannelID(ctx, id)
-		if err != nil {
-			return nil, acl.PeerIdentity{}, fmt.Errorf("resolve channel:%d: %w", id, err)
-		}
-		identity := PeerToIdentity(peer)
-		return peer, identity, nil
-
+	case r.Form == acl.RefUsername:
+		peer, err = pm.ResolveDomain(ctx, r.Username)
+	case r.Form == acl.RefPhone:
+		var u peers.User
+		u, err = pm.ResolvePhone(ctx, r.Phone)
+		peer = u
+	case r.Kind == acl.KindUser:
+		var u peers.User
+		u, err = pm.ResolveUserID(ctx, r.ID)
+		peer = u
+	case r.Kind == acl.KindChat:
+		var ch peers.Chat
+		ch, err = pm.ResolveChatID(ctx, r.ID)
+		peer = ch
 	default:
-		return nil, acl.PeerIdentity{}, fmt.Errorf("unknown peer reference format %q: use @username, +phone, user:ID, chat:ID, or channel:ID", ref)
+		var ch peers.Channel
+		ch, err = pm.ResolveChannelID(ctx, r.ID)
+		peer = ch
 	}
+	if err != nil {
+		return nil, acl.PeerIdentity{}, fmt.Errorf("resolve %s: %w", r, err)
+	}
+
+	identity := PeerToIdentity(peer)
+	// Keep the phone Telegram returned; if Raw() has none (hidden by privacy
+	// settings), the user is still the one the phone resolved to.
+	if r.Form == acl.RefPhone && identity.Phone == "" {
+		identity.Phone = r.Phone
+	}
+	return peer, identity, nil
 }
 
 func PeerToIdentity(peer peers.Peer) acl.PeerIdentity {
@@ -103,19 +77,9 @@ func PeerToIdentity(peer peers.Peer) acl.PeerIdentity {
 }
 
 func FormatPeerRef(peer peers.Peer) string {
-	switch p := peer.(type) {
-	case peers.User:
-		if username, ok := p.Username(); ok {
-			return "@" + username
-		}
-		return fmt.Sprintf("user:%d", p.ID())
-	case peers.Chat:
-		return fmt.Sprintf("chat:%d", p.ID())
-	case peers.Channel:
-		if username, ok := p.Username(); ok {
-			return "@" + username
-		}
-		return fmt.Sprintf("channel:%d", p.ID())
+	switch peer.(type) {
+	case peers.User, peers.Chat, peers.Channel:
+		return PeerToIdentity(peer).Ref()
 	default:
 		return fmt.Sprintf("unknown:%d", peer.ID())
 	}
